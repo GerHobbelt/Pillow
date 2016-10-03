@@ -3,6 +3,9 @@
 #include <assert.h>
 #include <math.h>
 
+#include "ResampleSIMDHorizontalConv.c"
+#include "ResampleSIMDVerticalConv.c"
+
 #define ROUND_UP(f) ((int)((f) >= 0.0 ? (f) + 0.5F : (f) - 0.5F))
 
 struct filter {
@@ -91,6 +94,8 @@ static struct filter LANCZOS = {lanczos_filter, 3.0};
    in the other it will be more than 1.0. That is why we need
    two extra bits for overflow and int type. */
 #define PRECISION_BITS (32 - 8 - 2)
+/* We use signed INT16 type to store coefficients. */
+#define MAX_COEFS_PRECISION (16 - 1)
 
 /* Handles values form -640 to 639. */
 UINT8 _clip8_lookups[1280] = {
@@ -175,8 +180,8 @@ UINT8 _clip8_lookups[1280] = {
 UINT8 *clip8_lookups = &_clip8_lookups[640];
 
 static inline UINT8
-clip8(int in) {
-    return clip8_lookups[in >> PRECISION_BITS];
+clip8(int in, int precision) {
+    return clip8_lookups[in >> precision];
 }
 
 static int
@@ -266,21 +271,38 @@ precompute_coeffs(
     return ksize;
 }
 
-static void
+static int
 normalize_coeffs_8bpc(int outSize, int ksize, double *prekk) {
     int x;
-    INT32 *kk;
+    INT16 *kk;
+    int coefs_precision;
+    double maxkk;
 
     // use the same buffer for normalized coefficients
-    kk = (INT32 *)prekk;
+    kk = (INT16 *) prekk;
+
+    maxkk = prekk[0];
+    for (x = 0; x < outSize * ksize; x++) {
+        if (maxkk < prekk[x]) {
+            maxkk = prekk[x];
+        }
+    }
+
+    for (coefs_precision = 0; coefs_precision < PRECISION_BITS; coefs_precision += 1) {
+        int next_value = (int) (0.5 + maxkk * (1 << (coefs_precision + 1)));
+        // The next value will be outside of the range, so just stop
+        if (next_value >= (1 << MAX_COEFS_PRECISION))
+            break;
+    }
 
     for (x = 0; x < outSize * ksize; x++) {
         if (prekk[x] < 0) {
-            kk[x] = (int)(-0.5 + prekk[x] * (1 << PRECISION_BITS));
+            kk[x] = (int) (-0.5 + prekk[x] * (1 << coefs_precision));
         } else {
-            kk[x] = (int)(0.5 + prekk[x] * (1 << PRECISION_BITS));
+            kk[x] = (int) (0.5 + prekk[x] * (1 << coefs_precision));
         }
     }
+    return coefs_precision;
 }
 
 // Internal. Caller must guarantee imIn and imOut are distinct buffers.
@@ -289,13 +311,14 @@ _ImagingResampleHorizontal_8bpc(
     Imaging imOut, Imaging imIn, int offset, int ksize, int *bounds, double *prekk
 ) {
     ImagingSectionCookie cookie;
-    int ss0, ss1, ss2, ss3;
+    int ss0;
     int xx, yy, x, xmin, xmax;
-    INT32 *k, *kk;
+    INT16 *k, *kk;
+    int coefs_precision;
 
     // use the same buffer for normalized coefficients
-    kk = (INT32 *)prekk;
-    normalize_coeffs_8bpc(imOut->xsize, ksize, prekk);
+    kk = (INT16 *) prekk;
+    coefs_precision = normalize_coeffs_8bpc(imOut->xsize, ksize, prekk);
 
     // Sizes are invariant over the loop.
     int xsize = imOut->xsize, ysize = imOut->ysize;
@@ -312,76 +335,38 @@ _ImagingResampleHorizontal_8bpc(
                 xmin = bounds[xx * 2 + 0];
                 xmax = bounds[xx * 2 + 1];
                 k = &kk[xx * ksize];
-                ss0 = 1 << (PRECISION_BITS - 1);
+                ss0 = 1 << (coefs_precision -1);
                 for (x = 0; x < xmax; x++) {
                     ss0 += lineIn[x + xmin] * k[x];
                 }
-                lineOut[xx] = clip8(ss0);
+                lineOut[xx] = clip8(ss0, coefs_precision);
             }
         }
     } else if (imIn->type == IMAGING_TYPE_UINT8) {
         // Verify caller allocated distinct buffers.
         assert(imIn->image != imOut->image);
-        if (imIn->bands == 2) {
-            for (yy = 0; yy < ysize; yy++) {
-                // Restrict safe: imIn and imOut are distinct.
-                UINT8 *restrict lineIn = (UINT8 *)imIn->image[yy + offset];
-                UINT8 *restrict lineOut = (UINT8 *)imOut->image[yy];
-                for (xx = 0; xx < xsize; xx++) {
-                    UINT32 v;
-                    xmin = bounds[xx * 2 + 0];
-                    xmax = bounds[xx * 2 + 1];
-                    k = &kk[xx * ksize];
-                    ss0 = ss3 = 1 << (PRECISION_BITS - 1);
-                    for (x = 0; x < xmax; x++) {
-                        ss0 += lineIn[(x + xmin) * 4 + 0] * k[x];
-                        ss3 += lineIn[(x + xmin) * 4 + 3] * k[x];
-                    }
-                    v = MAKE_UINT32(clip8(ss0), 0, 0, clip8(ss3));
-                    memcpy(lineOut + xx * sizeof(v), &v, sizeof(v));
-                }
-            }
-        } else if (imIn->bands == 3) {
-            for (yy = 0; yy < ysize; yy++) {
-                // Restrict safe: imIn and imOut are distinct.
-                UINT8 *restrict lineIn = (UINT8 *)imIn->image[yy + offset];
-                UINT8 *restrict lineOut = (UINT8 *)imOut->image[yy];
-                for (xx = 0; xx < xsize; xx++) {
-                    UINT32 v;
-                    xmin = bounds[xx * 2 + 0];
-                    xmax = bounds[xx * 2 + 1];
-                    k = &kk[xx * ksize];
-                    ss0 = ss1 = ss2 = 1 << (PRECISION_BITS - 1);
-                    for (x = 0; x < xmax; x++) {
-                        ss0 += lineIn[(x + xmin) * 4 + 0] * k[x];
-                        ss1 += lineIn[(x + xmin) * 4 + 1] * k[x];
-                        ss2 += lineIn[(x + xmin) * 4 + 2] * k[x];
-                    }
-                    v = MAKE_UINT32(clip8(ss0), clip8(ss1), clip8(ss2), 0);
-                    memcpy(lineOut + xx * sizeof(v), &v, sizeof(v));
-                }
-            }
-        } else {
-            for (yy = 0; yy < ysize; yy++) {
-                // Restrict safe: imIn and imOut are distinct.
-                UINT8 *restrict lineIn = (UINT8 *)imIn->image[yy + offset];
-                UINT8 *restrict lineOut = (UINT8 *)imOut->image[yy];
-                for (xx = 0; xx < xsize; xx++) {
-                    UINT32 v;
-                    xmin = bounds[xx * 2 + 0];
-                    xmax = bounds[xx * 2 + 1];
-                    k = &kk[xx * ksize];
-                    ss0 = ss1 = ss2 = ss3 = 1 << (PRECISION_BITS - 1);
-                    for (x = 0; x < xmax; x++) {
-                        ss0 += lineIn[(x + xmin) * 4 + 0] * k[x];
-                        ss1 += lineIn[(x + xmin) * 4 + 1] * k[x];
-                        ss2 += lineIn[(x + xmin) * 4 + 2] * k[x];
-                        ss3 += lineIn[(x + xmin) * 4 + 3] * k[x];
-                    }
-                    v = MAKE_UINT32(clip8(ss0), clip8(ss1), clip8(ss2), clip8(ss3));
-                    memcpy(lineOut + xx * sizeof(v), &v, sizeof(v));
-                }
-            }
+        yy = 0;
+        for (; yy < ysize - 3; yy += 4) {
+            ImagingResampleHorizontalConvolution8u4x(
+                (UINT32 *) imOut->image32[yy],
+                (UINT32 *) imOut->image32[yy + 1],
+                (UINT32 *) imOut->image32[yy + 2],
+                (UINT32 *) imOut->image32[yy + 3],
+                (UINT32 *) imIn->image32[yy + offset],
+                (UINT32 *) imIn->image32[yy + offset + 1],
+                (UINT32 *) imIn->image32[yy + offset + 2],
+                (UINT32 *) imIn->image32[yy + offset + 3],
+                xsize, bounds, kk, ksize,
+                coefs_precision
+            );
+        }
+        for (; yy < ysize; yy++) {
+            ImagingResampleHorizontalConvolution8u(
+                (UINT32 *) imOut->image32[yy],
+                (UINT32 *) imIn->image32[yy + offset],
+                xsize, bounds, kk, ksize,
+                coefs_precision
+            );
         }
     }
     ImagingSectionLeave(&cookie);
@@ -393,13 +378,14 @@ _ImagingResampleVertical_8bpc(
     Imaging imOut, Imaging imIn, int offset, int ksize, int *bounds, double *prekk
 ) {
     ImagingSectionCookie cookie;
-    int ss0, ss1, ss2, ss3;
+    int ss0;
     int xx, yy, y, ymin, ymax;
-    INT32 *k, *kk;
+    INT16 *k, *kk;
+    int coefs_precision;
 
     // use the same buffer for normalized coefficients
-    kk = (INT32 *)prekk;
-    normalize_coeffs_8bpc(imOut->ysize, ksize, prekk);
+    kk = (INT16 *) prekk;
+    coefs_precision = normalize_coeffs_8bpc(imOut->ysize, ksize, prekk);
 
     // Sizes are invariant over the loop.
     int xsize = imOut->xsize, ysize = imOut->ysize;
@@ -415,73 +401,24 @@ _ImagingResampleVertical_8bpc(
             ymin = bounds[yy * 2 + 0];
             ymax = bounds[yy * 2 + 1];
             for (xx = 0; xx < xsize; xx++) {
-                ss0 = 1 << (PRECISION_BITS - 1);
+                ss0 = 1 << (coefs_precision -1);
                 for (y = 0; y < ymax; y++) {
                     ss0 += ((UINT8)imIn->image8[y + ymin][xx]) * k[y];
                 }
-                lineOut[xx] = clip8(ss0);
+                lineOut[xx] = clip8(ss0, coefs_precision);
             }
         }
     } else if (imIn->type == IMAGING_TYPE_UINT8) {
         // Verify caller allocated distinct buffers.
         assert(imIn->image != imOut->image);
-        if (imIn->bands == 2) {
-            for (yy = 0; yy < ysize; yy++) {
-                // Restrict safe: imOut is a fresh allocation.
-                UINT8 *restrict lineOut = (UINT8 *)imOut->image[yy];
-                k = &kk[yy * ksize];
-                ymin = bounds[yy * 2 + 0];
-                ymax = bounds[yy * 2 + 1];
-                for (xx = 0; xx < xsize; xx++) {
-                    UINT32 v;
-                    ss0 = ss3 = 1 << (PRECISION_BITS - 1);
-                    for (y = 0; y < ymax; y++) {
-                        ss0 += ((UINT8)imIn->image[y + ymin][xx * 4 + 0]) * k[y];
-                        ss3 += ((UINT8)imIn->image[y + ymin][xx * 4 + 3]) * k[y];
-                    }
-                    v = MAKE_UINT32(clip8(ss0), 0, 0, clip8(ss3));
-                    memcpy(lineOut + xx * sizeof(v), &v, sizeof(v));
-                }
-            }
-        } else if (imIn->bands == 3) {
-            for (yy = 0; yy < ysize; yy++) {
-                // Restrict safe: imOut is a fresh allocation.
-                UINT8 *restrict lineOut = (UINT8 *)imOut->image[yy];
-                k = &kk[yy * ksize];
-                ymin = bounds[yy * 2 + 0];
-                ymax = bounds[yy * 2 + 1];
-                for (xx = 0; xx < xsize; xx++) {
-                    UINT32 v;
-                    ss0 = ss1 = ss2 = 1 << (PRECISION_BITS - 1);
-                    for (y = 0; y < ymax; y++) {
-                        ss0 += ((UINT8)imIn->image[y + ymin][xx * 4 + 0]) * k[y];
-                        ss1 += ((UINT8)imIn->image[y + ymin][xx * 4 + 1]) * k[y];
-                        ss2 += ((UINT8)imIn->image[y + ymin][xx * 4 + 2]) * k[y];
-                    }
-                    v = MAKE_UINT32(clip8(ss0), clip8(ss1), clip8(ss2), 0);
-                    memcpy(lineOut + xx * sizeof(v), &v, sizeof(v));
-                }
-            }
-        } else {
-            for (yy = 0; yy < ysize; yy++) {
-                // Restrict safe: imOut is a fresh allocation.
-                UINT8 *restrict lineOut = (UINT8 *)imOut->image[yy];
-                k = &kk[yy * ksize];
-                ymin = bounds[yy * 2 + 0];
-                ymax = bounds[yy * 2 + 1];
-                for (xx = 0; xx < xsize; xx++) {
-                    UINT32 v;
-                    ss0 = ss1 = ss2 = ss3 = 1 << (PRECISION_BITS - 1);
-                    for (y = 0; y < ymax; y++) {
-                        ss0 += ((UINT8)imIn->image[y + ymin][xx * 4 + 0]) * k[y];
-                        ss1 += ((UINT8)imIn->image[y + ymin][xx * 4 + 1]) * k[y];
-                        ss2 += ((UINT8)imIn->image[y + ymin][xx * 4 + 2]) * k[y];
-                        ss3 += ((UINT8)imIn->image[y + ymin][xx * 4 + 3]) * k[y];
-                    }
-                    v = MAKE_UINT32(clip8(ss0), clip8(ss1), clip8(ss2), clip8(ss3));
-                    memcpy(lineOut + xx * sizeof(v), &v, sizeof(v));
-                }
-            }
+        for (yy = 0; yy < ysize; yy++) {
+            k = &kk[yy * ksize];
+            ymin = bounds[yy * 2 + 0];
+            ymax = bounds[yy * 2 + 1];
+            ImagingResampleVerticalConvolution8u(
+                (UINT32 *) imOut->image32[yy], imIn,
+                ymin, ymax, k, coefs_precision
+            );
         }
     }
     ImagingSectionLeave(&cookie);
