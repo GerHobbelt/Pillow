@@ -214,6 +214,50 @@ class TestFileJpeg2k(PillowTestCase):
         self.assertEqual(p.image.size, (640, 480))
 
 
+@pytest.mark.xfail(is_big_endian(), reason="Fails on big-endian")
+def test_16bit_monochrome_jp2_like_tiff():
+    with Image.open("Tests/images/16bit.cropped.tif") as tiff_16bit:
+        assert_image_similar_tofile(tiff_16bit, "Tests/images/16bit.cropped.jp2", 1e-3)
+
+
+@pytest.mark.xfail(is_big_endian(), reason="Fails on big-endian")
+def test_16bit_monochrome_j2k_like_tiff():
+    with Image.open("Tests/images/16bit.cropped.tif") as tiff_16bit:
+        assert_image_similar_tofile(tiff_16bit, "Tests/images/16bit.cropped.j2k", 1e-3)
+
+
+def test_16bit_j2k_roundtrips():
+    with Image.open("Tests/images/16bit.cropped.j2k") as j2k:
+        im = roundtrip(j2k)
+        assert_image_equal(im, j2k)
+
+
+def test_16bit_jp2_roundtrips():
+    with Image.open("Tests/images/16bit.cropped.jp2") as jp2:
+        im = roundtrip(jp2)
+        assert_image_equal(im, jp2)
+
+
+def test_unbound_local():
+    # prepatch, a malformed jp2 file could cause an UnboundLocalError exception.
+    with pytest.raises(OSError):
+        with Image.open("Tests/images/unbound_variable.jp2"):
+            pass
+
+
+def test_parser_feed():
+    # Arrange
+    with open("Tests/images/test-card-lossless.jp2", "rb") as f:
+        data = f.read()
+
+    # Act
+    p = ImageFile.Parser()
+    p.feed(data)
+
+    # Assert
+    assert p.image.size == (640, 480)
+
+
 @pytest.mark.parametrize(
     "test_file",
     [
