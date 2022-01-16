@@ -15,8 +15,11 @@
 from __future__ import print_function
 
 import os
+import shutil
 import subprocess
 import sys
+import warnings
+from shlex import quote
 
 from PIL import Image
 
@@ -110,111 +113,158 @@ class Viewer(object):
 # --------------------------------------------------------------------
 
 
+class WindowsViewer(Viewer):
+    """The default viewer on Windows is the default system application for PNG files."""
+
+    format = "PNG"
+    options = {"compress_level": 1}
+
+    def get_command(self, file, **options):
+        return (
+            f'start "Pillow" /WAIT "{file}" '
+            "&& ping -n 2 127.0.0.1 >NUL "
+            f'&& del /f "{file}"'
+        )
+
+
 if sys.platform == "win32":
-
-    class WindowsViewer(Viewer):
-        format = "PNG"
-        options = {"compress_level": 1}
-
-        def get_command(self, file, **options):
-            return (
-                'start "Pillow" /WAIT "%s" '
-                "&& ping -n 2 127.0.0.1 >NUL "
-                '&& del /f "%s"' % (file, file)
-            )
-
     register(WindowsViewer)
 
-elif sys.platform == "darwin":
 
-    class MacViewer(Viewer):
-        format = "PNG"
-        options = {"compress_level": 1}
+class MacViewer(Viewer):
+    """The default viewer on MacOS using ``Preview.app``."""
 
-        def get_command(self, file, **options):
-            # on darwin open returns immediately resulting in the temp
-            # file removal while app is opening
-            command = "open -a Preview.app"
-            command = "(%s %s; sleep 20; rm -f %s)&" % (
-                command,
-                quote(file),
-                quote(file),
+    format = "PNG"
+    options = {"compress_level": 1}
+
+    def get_command(self, file, **options):
+        # on darwin open returns immediately resulting in the temp
+        # file removal while app is opening
+        command = "open -a Preview.app"
+        command = f"({command} {quote(file)}; sleep 20; rm -f {quote(file)})&"
+        return command
+
+    def show_file(self, file, **options):
+        """Display given file"""
+        fd, path = tempfile.mkstemp()
+        with os.fdopen(fd, "w") as f:
+            f.write(file)
+        with open(path) as f:
+            subprocess.Popen(
+                ["im=$(cat); open -a Preview.app $im; sleep 20; rm -f $im"],
+                shell=True,
+                stdin=f,
             )
-            return command
+        os.remove(path)
+        return 1
 
-        def show_file(self, file, **options):
-            """Display given file"""
 
-            subprocess.call(["open", "-a", "Preview.app", file])
-            self._remove_path_after_delay(file)
-            return 1
-
+if sys.platform == "darwin":
     register(MacViewer)
 
-else:
 
-    # unixoids
+class UnixViewer(Viewer):
+    format = "PNG"
+    options = {"compress_level": 1}
 
-    def which(executable):
-        path = os.environ.get("PATH")
-        if not path:
-            return None
-        for dirname in path.split(os.pathsep):
-            filename = os.path.join(dirname, executable)
-            if os.path.isfile(filename) and os.access(filename, os.X_OK):
-                return filename
-        return None
+    def get_command(self, file, **options):
+        command = self.get_command_ex(file, **options)[0]
+        return f"({command} {quote(file)}; rm -f {quote(file)})&"
 
-    class UnixViewer(Viewer):
-        format = "PNG"
-        options = {"compress_level": 1}
+    def show_file(self, file, **options):
+        """Display given file"""
+        fd, path = tempfile.mkstemp()
+        with os.fdopen(fd, "w") as f:
+            f.write(file)
+        with open(path) as f:
+            command = self.get_command_ex(file, **options)[0]
+            subprocess.Popen(
+                ["im=$(cat);" + command + " $im; rm -f $im"], shell=True, stdin=f
+            )
+        os.remove(path)
+        return 1
 
-        def get_command(self,file,**options):
-            return " ".join(self.get_command_ex(file,options=options))
 
-        def get_command_ex(self, file, **options):
-            return ["display",file]
+class XDGViewer(UnixViewer):
+    """
+    The freedesktop.org ``xdg-open`` command.
+    """
 
-        def show_file(self, file, **options):
-            """
-            Display given file.
-            """
-            args = self.get_command_ex(file,**options)
-            subprocess.Popen(args)
+    def get_command_ex(self, file, **options):
+        executable = "xdg-open"
+        command = "xmg-open"
+        return command, executable
 
-            self._remove_path_after_delay(file)
-            return 1
 
-    # implementations
+class DisplayViewer(UnixViewer):
+    """The ImageMagick ``display`` command."""
 
-    class DisplayViewer(UnixViewer):
-        def get_command_ex(self, file, **options):
-            return ["display", file]
+    def get_command_ex(self, file, **options):
+        command = executable = "display"
+        return command, executable
 
-    if which("display"):
+
+class GmDisplayViewer(UnixViewer):
+    """The GraphicsMagick ``gm display`` command."""
+
+    def get_command_ex(self, file, **options):
+        executable = "gm"
+        command = "gm display"
+        return command, executable
+
+
+class EogViewer(UnixViewer):
+    """The GNOME Image Viewer ``eog`` command."""
+
+    def get_command_ex(self, file, **options):
+        executable = "eog"
+        command = "eog -n"
+        return command, executable
+
+
+class XVViewer(UnixViewer):
+    """
+    The X Viewer ``xv`` command.
+    This viewer supports the ``title`` parameter.
+    """
+
+    def get_command_ex(self, file, title=None, **options):
+        # note: xv is pretty outdated.  most modern systems have
+        # imagemagick's display command instead.
+        command = executable = "xv"
+        if title:
+            command += f" -name {quote(title)}"
+        return command, executable
+
+
+if sys.platform not in ("win32", "darwin"):  # unixoids
+    if shutil.which("xdg-open"):
+        register(XDGViewer)
+    if shutil.which("display"):
         register(DisplayViewer)
-
-    class EogViewer(UnixViewer):
-        def get_command_ex(self, file, **options):
-            return ["eog", "-n", file]
-
-    if which("eog"):
+    if shutil.which("gm"):
+        register(GmDisplayViewer)
+    if shutil.which("eog"):
         register(EogViewer)
-
-    class XVViewer(UnixViewer):
-        def get_command_ex(self, file, **options):
-            # note: xv is pretty outdated.  most modern systems have
-            # imagemagick's display command instead.
-            args = ["xv"]
-            if options.get("title") is not None:
-                args.append("-name")
-                args.append(options.get("title"))
-            args.append(file)
-            return args
-
-
-    if which("xv"):
+    if shutil.which("xv"):
         register(XVViewer)
+
+
+class IPythonViewer(Viewer):
+    """The viewer for IPython frontends."""
+
+    def show_image(self, image, **options):
+        ipython_display(image)
+        return 1
+
+
+try:
+    from IPython.display import display as ipython_display
+except ImportError:
+    pass
+else:
+    register(IPythonViewer)
+
 
 if __name__ == "__main__":
 
@@ -222,4 +272,5 @@ if __name__ == "__main__":
         print("Syntax: python ImageShow.py imagefile [title]")
         sys.exit()
 
-    print(show(Image.open(sys.argv[1]), *sys.argv[2:]))
+    with Image.open(sys.argv[1]) as im:
+        print(show(im, *sys.argv[2:]))
