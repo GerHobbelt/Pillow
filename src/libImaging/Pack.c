@@ -282,6 +282,12 @@ ImagingPackRGB(UINT8 *out, const UINT8 *in, int pixels) {
 }
 
 void
+ImagingPackR16G16B16(UINT8 *out, const UINT8 *in, int pixels) {
+    printf("%s:%d ImagingPackR16G16B16 out=%p in=%p pixels=0x%x\n", __FILE__, __LINE__, out, in, pixels);
+    memcpy(out, in, pixels * 6);
+}
+
+void
 ImagingPackXRGB(UINT8 *out, const UINT8 *in, int pixels) {
     int i;
     /* XRGB, triplets with left padding */
@@ -583,6 +589,7 @@ static struct {
     {"RGB", "R", 8, band0},
     {"RGB", "G", 8, band1},
     {"RGB", "B", 8, band2},
+    {"R16G16B16", "R16G16B16", 48, ImagingPackR16G16B16},
 
     /* true colour w. alpha */
     {"RGBA", "RGBA", 32, copy4},
@@ -677,6 +684,8 @@ static struct {
 ImagingShuffler
 ImagingFindPacker(const char *mode, const char *rawmode, int *bits_out) {
     int i;
+
+    printf("%s:%d ImagingFindPacker %s %s\n", __FILE__, __LINE__, mode, rawmode);
 
     /* find a suitable pixel packer */
     for (i = 0; packers[i].rawmode; i++) {

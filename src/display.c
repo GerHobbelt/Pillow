@@ -48,20 +48,25 @@ static PyTypeObject ImagingDisplayType;
 
 static ImagingDisplayObject *
 _new(const char *mode, int xsize, int ysize) {
+    printf("%s:%d\n", __FILE__, __LINE__);
+
     ImagingDisplayObject *display;
 
     if (PyType_Ready(&ImagingDisplayType) < 0) {
+        printf("%s:%d\n", __FILE__, __LINE__);
         return NULL;
     }
 
     display = PyObject_New(ImagingDisplayObject, &ImagingDisplayType);
     if (display == NULL) {
+        printf("%s:%d\n", __FILE__, __LINE__);
         return NULL;
     }
 
     display->dib = ImagingNewDIB(mode, xsize, ysize);
     if (!display->dib) {
         Py_DECREF(display);
+        printf("%s:%d\n", __FILE__, __LINE__);
         return NULL;
     }
 

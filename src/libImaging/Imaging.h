@@ -70,7 +70,7 @@ typedef struct ImagingPaletteInstance *ImagingPalette;
 #define IMAGING_TYPE_SPECIAL 3 /* check mode for details */
 
 #define IMAGING_MODE_LENGTH \
-    6 + 1 /* Band names ("1", "L", "P", "RGB", "RGBA", "CMYK", "YCbCr", "BGR;xy") */
+    12 + 1 /* Band names ("1", "L", "P", "RGB", "RGBA", "CMYK", "YCbCr", "BGR;xy", "R16G16B16", "R16G16B16A16") */
 
 typedef struct {
     char *ptr;
@@ -80,7 +80,7 @@ typedef struct {
 struct ImagingMemoryInstance {
     /* Format */
     char mode[IMAGING_MODE_LENGTH]; /* Band names ("1", "L", "P", "RGB", "RGBA", "CMYK",
-                                       "YCbCr", "BGR;xy") */
+                                       "YCbCr", "BGR;xy", "R16G16B16", "R16G16B16A16") */
     int type;                       /* Data type (IMAGING_TYPE_*) */
     int depth;                      /* Depth (ignored in this version) */
     int bands;                      /* Number of bands (1, 2, 3, or 4) */

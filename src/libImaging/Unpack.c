@@ -599,6 +599,14 @@ ImagingUnpackRGB(UINT8 *_out, const UINT8 *in, int pixels) {
     }
 }
 
+/* Unpack to "R16G16B16" image */
+
+void
+ImagingUnpackR16G16B16(UINT8 *_out, const UINT8 *in, int pixels) {
+    printf("ImagingUnpackR16G16B16 pixels=%d\n", pixels);
+    memcpy(_out, in, pixels * 6);
+}
+
 void
 unpackRGB16L(UINT8 *_out, const UINT8 *in, int pixels) {
     int i;
@@ -1577,6 +1585,7 @@ static struct {
     {"RGB", "R;16B", 16, band016B},
     {"RGB", "G;16B", 16, band116B},
     {"RGB", "B;16B", 16, band216B},
+    {"R16G16B16", "R16G16B16", 48, ImagingUnpackR16G16B16},
 
     /* true colour w. alpha */
     {"RGBA", "LA", 16, unpackRGBALA},
@@ -1777,6 +1786,7 @@ static struct {
 ImagingShuffler
 ImagingFindUnpacker(const char *mode, const char *rawmode, int *bits_out) {
     int i;
+    printf("%s:%d mode=%s rawmode=%s\n", __FILE__, __LINE__, mode, rawmode);
 
     /* find a suitable pixel unpacker */
     for (i = 0; unpackers[i].rawmode; i++) {
@@ -1785,11 +1795,14 @@ ImagingFindUnpacker(const char *mode, const char *rawmode, int *bits_out) {
             if (bits_out) {
                 *bits_out = unpackers[i].bits;
             }
+
+            printf("%s:%d\n", __FILE__, __LINE__);
             return unpackers[i].unpack;
         }
     }
 
     /* FIXME: configure a general unpacker based on the type codes... */
 
+    printf("%s:%d\n", __FILE__, __LINE__);
     return NULL;
 }

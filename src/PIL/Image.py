@@ -52,6 +52,7 @@ from ._binary import i32le, o32be, o32le
 from ._deprecate import deprecate
 from ._util import DeferredError, is_path
 
+BYTES_PER_PIXEL_MAX = 4
 
 def __getattr__(name):
     categories = {"NORMAL": 0, "SEQUENCE": 1, "CONTAINER": 2}
@@ -381,6 +382,8 @@ def init():
 
 
 def _getdecoder(mode, decoder_name, args, extra=()):
+
+    print("Image.py _getdecoder args={0} decoder_name={1}\n".format(args, decoder_name))
 
     # tweak arguments
     if args is None:
@@ -736,6 +739,8 @@ class Image:
         :returns: A :py:class:`bytes` object.
         """
 
+        print("Image.py tobytes start")
+
         # may pass tuple instead of argument list
         if len(args) == 1 and isinstance(args[0], tuple):
             args = args[0]
@@ -748,14 +753,21 @@ class Image:
         if self.width == 0 or self.height == 0:
             return b""
 
+        print("Image.py tobytes encoder_name={0} self.width={1} self.height={2} self.size[0]={3} self.mode={4}".format(encoder_name, self.width, self.height, self.size[0], self.mode))
+
         # unpack data
         e = _getencoder(self.mode, encoder_name, args)
         e.setimage(self.im)
 
-        bufsize = max(65536, self.size[0] * 4)  # see RawEncode.c
+        # bufsize
+        bufsize = max(65536, self.size[0] * BYTES_PER_PIXEL_MAX)  # see RawEncode.c
+        if self.mode == "R16G16B16":
+            bufsize = self.width * 6
 
         data = []
         while True:
+            print("Image.py tobytes e.encode bufsize={0}".format(bufsize))
+
             l, s, d = e.encode(bufsize)
             data.append(d)
             if s:
@@ -797,6 +809,8 @@ class Image:
         This method is similar to the :py:func:`~PIL.Image.frombytes` function,
         but loads data into this image instead of creating a new image object.
         """
+
+        print("Image.py frombytes len(args)={0} decoder_name={1}\n".format(len(args), decoder_name));
 
         # may pass tuple instead of argument list
         if len(args) == 1 and isinstance(args[0], tuple):
@@ -2822,6 +2836,8 @@ def new(mode, size, color=0):
     :returns: An :py:class:`~PIL.Image.Image` object.
     """
 
+    print("Image new color={0} isinstance(color,str)={1} isinstance(color,(list,tuple))={2} mode={3}".format(color, isinstance(color,str), isinstance(color,(list,tuple)), mode))
+
     _check_size(size)
 
     if color is None:
@@ -2842,6 +2858,9 @@ def new(mode, size, color=0):
 
         im.palette = ImagePalette.ImagePalette()
         color = im.palette.getcolor(color)
+
+    print("Image.py new call im._new")
+
     return im._new(core.fill(mode, size, color))
 
 
@@ -2868,6 +2887,8 @@ def frombytes(mode, size, data, decoder_name="raw", *args):
     :param args: Additional parameters for the given decoder.
     :returns: An :py:class:`~PIL.Image.Image` object.
     """
+
+    print("Image.frombytes len(args)={0} decoder_name={1}".format(len(args), decoder_name))
 
     _check_size(size)
 
@@ -2917,6 +2938,8 @@ def frombuffer(mode, size, data, decoder_name="raw", *args):
 
     .. versionadded:: 1.1.4
     """
+
+    print("Image.frombuffer mode={0} size={1} decoder_name={0}".format(mode, size, decoder_name))
 
     _check_size(size)
 
@@ -2982,6 +3005,8 @@ def fromarray(obj, mode=None):
     arr = obj.__array_interface__
     shape = arr["shape"]
     ndim = len(shape)
+
+
     strides = arr.get("strides", None)
     if mode is None:
         try:
@@ -2998,6 +3023,8 @@ def fromarray(obj, mode=None):
         ndmax = 2
     elif mode == "RGB":
         ndmax = 3
+    elif mode == "R16G16B16":
+        ndmax = 3
     else:
         ndmax = 4
     if ndim > ndmax:
@@ -3010,6 +3037,8 @@ def fromarray(obj, mode=None):
         else:
             obj = obj.tostring()
 
+    print("Image.fromarray mode={0} ndmax={1} size={2}".format(mode, ndmax, size))
+    
     return frombuffer(mode, size, obj, "raw", rawmode, 0, 1)
 
 
@@ -3051,6 +3080,7 @@ _fromarray_typemap = {
     ((1, 1), ">f8"): ("F", "F;64BF"),
     ((1, 1, 2), "|u1"): ("LA", "LA"),
     ((1, 1, 3), "|u1"): ("RGB", "RGB"),
+    ((1, 1, 3), "|u1"): ("R16G16B16", "R16G16B16"),
     ((1, 1, 4), "|u1"): ("RGBA", "RGBA"),
     # shortcuts:
     ((1, 1), _ENDIAN + "i4"): ("I", "I"),
@@ -3384,6 +3414,9 @@ def register_decoder(name, decoder):
 
     .. versionadded:: 4.1.0
     """
+
+    print("register_decoder {0}".format(name))
+
     DECODERS[name] = decoder
 
 

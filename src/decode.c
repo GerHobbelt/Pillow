@@ -61,12 +61,16 @@ PyImaging_DecoderNew(int contextsize) {
     ImagingDecoderObject *decoder;
     void *context;
 
+    printf("%s:%d PyImaging_DecoderNew\n", __FILE__, __LINE__);
+
     if (PyType_Ready(&ImagingDecoderType) < 0) {
+        printf("%s:%d\n", __FILE__, __LINE__);
         return NULL;
     }
 
     decoder = PyObject_New(ImagingDecoderObject, &ImagingDecoderType);
     if (decoder == NULL) {
+        printf("%s:%d\n", __FILE__, __LINE__);
         return NULL;
     }
 
@@ -79,6 +83,7 @@ PyImaging_DecoderNew(int contextsize) {
         if (!context) {
             Py_DECREF(decoder);
             (void)ImagingError_MemoryError();
+            printf("%s:%d\n", __FILE__, __LINE__);
             return NULL;
         }
     } else {
@@ -99,6 +104,7 @@ PyImaging_DecoderNew(int contextsize) {
        having it pushed */
     decoder->pulls_fd = 0;
 
+    printf("%s:%d\n", __FILE__, __LINE__);
     return decoder;
 }
 
@@ -121,20 +127,26 @@ _decode(ImagingDecoderObject *decoder, PyObject *args) {
     int status;
     ImagingSectionCookie cookie;
 
+    printf("%s:%d _decode\n", __FILE__, __LINE__);
+
     if (!PyArg_ParseTuple(args, "y#", &buffer, &bufsize)) {
+        printf("%s:%d\n", __FILE__, __LINE__);
         return NULL;
     }
 
     if (!decoder->pulls_fd) {
+        printf("%s:%d\n", __FILE__, __LINE__);
         ImagingSectionEnter(&cookie);
     }
 
     status = decoder->decode(decoder->im, &decoder->state, buffer, bufsize);
 
     if (!decoder->pulls_fd) {
+        printf("%s:%d\n", __FILE__, __LINE__);
         ImagingSectionLeave(&cookie);
     }
 
+    printf("%s:%d _decode end. status=%d decoder->state.errcode=%d\n", __FILE__, __LINE__, status, decoder->state.errcode);
     return Py_BuildValue("ii", status, decoder->state.errcode);
 }
 
@@ -161,12 +173,16 @@ _setimage(ImagingDecoderObject *decoder, PyObject *args) {
 
     x0 = y0 = x1 = y1 = 0;
 
+    printf("%s:%d _setimage\n", __FILE__, __LINE__);
+
     /* FIXME: should publish the ImagingType descriptor */
     if (!PyArg_ParseTuple(args, "O|(iiii)", &op, &x0, &y0, &x1, &y1)) {
+        printf("%s:%d\n", __FILE__, __LINE__);
         return NULL;
     }
     im = PyImaging_AsImaging(op);
     if (!im) {
+        printf("%s:%d\n", __FILE__, __LINE__);
         return NULL;
     }
 
@@ -188,13 +204,16 @@ _setimage(ImagingDecoderObject *decoder, PyObject *args) {
     if (state->xsize <= 0 || state->xsize + state->xoff > (int)im->xsize ||
         state->ysize <= 0 || state->ysize + state->yoff > (int)im->ysize) {
         PyErr_SetString(PyExc_ValueError, "tile cannot extend outside image");
+        printf("%s:%d\n", __FILE__, __LINE__);
         return NULL;
     }
 
     /* Allocate memory buffer (if bits field is set) */
+    printf(" state->bits=%d state->bytes=%d state->buffer=%p\n", state->bits, state->bytes, state->buffer);
     if (state->bits > 0) {
         if (!state->bytes) {
             if (state->xsize > ((INT_MAX / state->bits) - 7)) {
+                printf("%s:%d\n", __FILE__, __LINE__);
                 return ImagingError_MemoryError();
             }
             state->bytes = (state->bits * state->xsize + 7) / 8;
@@ -202,6 +221,7 @@ _setimage(ImagingDecoderObject *decoder, PyObject *args) {
         /* malloc check ok, overflow checked above */
         state->buffer = (UINT8 *)calloc(1, state->bytes);
         if (!state->buffer) {
+            printf("%s:%d\n", __FILE__, __LINE__);
             return ImagingError_MemoryError();
         }
     }
@@ -213,6 +233,7 @@ _setimage(ImagingDecoderObject *decoder, PyObject *args) {
     decoder->lock = op;
 
     Py_INCREF(Py_None);
+    printf("%s:%d\n", __FILE__, __LINE__);
     return Py_None;
 }
 
@@ -296,8 +317,11 @@ get_unpacker(ImagingDecoderObject *decoder, const char *mode, const char *rawmod
     int bits;
     ImagingShuffler unpack;
 
+    printf("%s:%d get_unpacker\n", __FILE__, __LINE__);
+
     unpack = ImagingFindUnpacker(mode, rawmode, &bits);
     if (!unpack) {
+        printf("%s:%d\n", __FILE__, __LINE__);
         Py_DECREF(decoder);
         PyErr_SetString(PyExc_ValueError, "unknown raw mode for given image mode");
         return -1;
@@ -623,18 +647,26 @@ PyImaging_RawDecoderNew(PyObject *self, PyObject *args) {
     char *rawmode;
     int stride = 0;
     int ystep = 1;
+
+    printf("PyImaging_RawDecoderNew\n");
+
     if (!PyArg_ParseTuple(args, "ss|ii", &mode, &rawmode, &stride, &ystep)) {
+        printf("%s:%d\n", __FILE__, __LINE__);
         return NULL;
     }
 
     decoder = PyImaging_DecoderNew(sizeof(RAWSTATE));
     if (decoder == NULL) {
+        printf("%s:%d\n", __FILE__, __LINE__);
         return NULL;
     }
 
     if (get_unpacker(decoder, mode, rawmode) < 0) {
+        printf("%s:%d\n", __FILE__, __LINE__);
         return NULL;
     }
+
+    printf("PyImaging_RawDecoderNew mode=%s rawmode=%s stride=%d ystep=%d\n", mode, rawmode, stride, ystep);
 
     decoder->decode = ImagingRawDecode;
 

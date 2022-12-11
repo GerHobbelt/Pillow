@@ -127,7 +127,13 @@ ImagingNewPrologueSubtype(const char *mode, int xsize, int ysize, int size) {
         im->bands = 3;
         im->pixelsize = 4;
         im->linesize = xsize * 4;
-
+    } else if (strcmp(mode, "R16G16B16") == 0) {
+        /* 24-bit true colour images */
+        im->bands = 3;
+        im->pixelsize = 6;
+        im->linesize = xsize * 6;
+        im->depth = 16;
+        im->type = IMAGING_TYPE_SPECIAL;
     } else if (strcmp(mode, "BGR;15") == 0) {
         /* EXPERIMENTAL */
         /* 15-bit reversed true colour */
@@ -226,6 +232,9 @@ ImagingNewPrologueSubtype(const char *mode, int xsize, int ysize, int size) {
             break;
         case 4:
             im->image32 = (INT32 **)im->image;
+            break;
+        case 6:
+            im->image8 = (UINT8 **)im->image;
             break;
     }
 

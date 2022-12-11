@@ -93,6 +93,8 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 
+#include <stdint.h>
+
 /* Configuration stuff. Feel free to undef things you don't need. */
 #define WITH_IMAGECHOPS  /* ImageChops support */
 #define WITH_IMAGEDRAW   /* ImageDraw support */
@@ -106,7 +108,7 @@
 #define WITH_THREADING   /* "friendly" threading support */
 #define WITH_UNSHARPMASK /* Kevin Cazabon's unsharpmask module */
 
-#undef VERBOSE
+// #undef VERBOSE
 
 #define B16(p, i) ((((int)p[(i)]) << 8) + p[(i) + 1])
 #define L16(p, i) ((((int)p[(i) + 1]) << 8) + p[(i)])
@@ -164,6 +166,8 @@ PyObject *
 PyImagingNew(Imaging imOut) {
     ImagingObject *imagep;
 
+    printf("PyImagingNew imOut=%p\n", imOut);
+
     if (!imOut) {
         return NULL;
     }
@@ -171,6 +175,7 @@ PyImagingNew(Imaging imOut) {
     imagep = PyObject_New(ImagingObject, &Imaging_Type);
     if (imagep == NULL) {
         ImagingDelete(imOut);
+        printf("PyImagingNew imagep==null\n");
         return NULL;
     }
 
@@ -436,6 +441,7 @@ getpixel(Imaging im, ImagingAccess access, int x, int y) {
         UINT16 h;
         INT32 i;
         FLOAT32 f;
+        UINT16 w[4];
     } pixel;
 
     if (x < 0) {
@@ -474,6 +480,9 @@ getpixel(Imaging im, ImagingAccess access, int x, int y) {
             if (strncmp(im->mode, "I;16", 4) == 0) {
                 return PyLong_FromLong(pixel.h);
             }
+            if (strcmp(im->mode, "R16G16B16") == 0) {
+                return Py_BuildValue("HHH", pixel.w[0], pixel.w[1], pixel.w[2]);
+            }
             break;
     }
 
@@ -493,6 +502,8 @@ getink(PyObject *color, Imaging im, char *ink) {
     PY_LONG_LONG r = 0;
     FLOAT32 ftmp;
     INT32 itmp;
+
+    uint16_t *ink16 = (uint16_t *)ink;
 
     /* fill ink buffer (four bytes) with something that can
        be cast to either UINT8 or INT32 */
@@ -589,7 +600,13 @@ getink(PyObject *color, Imaging im, char *ink) {
                 ink[1] = (UINT8)(r >> 8);
                 ink[2] = ink[3] = 0;
                 return ink;
+            } else if (strcmp(im->mode, "R16G16B16") == 0) {
+                ink16[0] = (UINT16)CLIP16(r);
+                ink16[1] = (UINT16)CLIP16(r>>16);
+                ink16[2] = (UINT16)CLIP16(r>>32);
+                return ink;
             }
+            break;
     }
 
     PyErr_SetString(PyExc_ValueError, wrong_mode);
@@ -605,30 +622,36 @@ _fill(PyObject *self, PyObject *args) {
     char *mode;
     int xsize, ysize;
     PyObject *color;
-    char buffer[4];
+    char buffer[8] = {0};
     Imaging im;
 
     xsize = ysize = 256;
     color = NULL;
 
+    printf("%s:%d\n", __FILE__, __LINE__);
+
     if (!PyArg_ParseTuple(args, "s|(ii)O", &mode, &xsize, &ysize, &color)) {
+        printf("%s:%d\n", __FILE__, __LINE__);
         return NULL;
     }
 
     im = ImagingNewDirty(mode, xsize, ysize);
     if (!im) {
+        printf("%s:%d\n", __FILE__, __LINE__);
         return NULL;
     }
 
-    buffer[0] = buffer[1] = buffer[2] = buffer[3] = 0;
     if (color) {
         if (!getink(color, im, buffer)) {
             ImagingDelete(im);
+            printf("%s:%d\n", __FILE__, __LINE__);
             return NULL;
         }
     }
 
     (void)ImagingFill(im, buffer);
+
+    printf("%s:%d\n", __FILE__, __LINE__);
 
     return PyImagingNew(im);
 }
@@ -1591,17 +1614,28 @@ if (PySequence_Check(op)) { \
                     union {
                         char ink[4];
                         INT32 inkint;
+                        uint16_t ink16[4];
+                        uint64_t inkUint64;
                     } u;
 
-                    u.inkint = 0;
+                    u.inkUint64 = 0;
 
                     op = PySequence_Fast_GET_ITEM(seq, i);
                     if (!op || !getink(op, image, u.ink)) {
                         Py_DECREF(seq);
                         return NULL;
                     }
-                    /* FIXME: what about scale and offset? */
-                    image->image32[y][x] = u.inkint;
+
+                    if (strcmp(image->mode, "R16G16B16") == 0) {
+                        uint16_t *p = (uint16_t *)&image->image8[y][x * 6];
+                        p[0] = (UINT16)CLIP16(u.inkUint64);
+                        p[1] = (UINT16)CLIP16(u.inkUint64 >> 16);
+                        p[2] = (UINT16)CLIP16(u.inkUint64 >> 32);
+                    } else {
+                        /* FIXME: what about scale and offset? */
+                        image->image32[y][x] = u.inkint;
+                    }
+
                     if (++x >= (int)image->xsize) {
                         x = 0, y++;
                     }
@@ -2173,7 +2207,7 @@ _getextrema(ImagingObject *self) {
         UINT8 u[2];
         INT32 i[2];
         FLOAT32 f[2];
-        UINT16 s[2];
+        UINT16 s[4];
     } extrema;
     int status;
 
@@ -2193,6 +2227,9 @@ _getextrema(ImagingObject *self) {
             case IMAGING_TYPE_SPECIAL:
                 if (strcmp(self->image->mode, "I;16") == 0) {
                     return Py_BuildValue("HH", extrema.s[0], extrema.s[1]);
+                } else if (strcmp(self->image->mode, "R16G16B16") == 0) {
+                    return Py_BuildValue(
+                        "HHH", extrema.s[0], extrema.s[1], extrema.s[2]);
                 }
         }
     }

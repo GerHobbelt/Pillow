@@ -179,7 +179,11 @@ ImagingGetExtrema(Imaging im, void *extrema) {
             memcpy(((char *)extrema) + sizeof(fmin), &fmax, sizeof(fmax));
             break;
         case IMAGING_TYPE_SPECIAL:
-            if (strcmp(im->mode, "I;16") == 0) {
+            if (strcmp(im->mode, "R16G16B16") == 0) {
+                UINT8 *pixel = *im->image8;
+                memcpy(extrema, pixel, 6);
+                break;
+            } else if (strcmp(im->mode, "I;16") == 0) {
                 UINT16 v;
                 UINT8 *pixel = *im->image8;
 #ifdef WORDS_BIGENDIAN

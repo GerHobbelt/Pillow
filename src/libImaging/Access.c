@@ -98,6 +98,11 @@ get_pixel_32(Imaging im, int x, int y, void *color) {
 }
 
 static void
+get_pixel_48(Imaging im, int x, int y, void *color) {
+    memcpy(color, &im->image8[y][x*6], 6);
+}
+
+static void
 get_pixel_32L(Imaging im, int x, int y, void *color) {
     UINT8 *in = (UINT8 *)&im->image[y][x * 4];
 #ifdef WORDS_BIGENDIAN
@@ -168,6 +173,11 @@ put_pixel_32(Imaging im, int x, int y, const void *color) {
     memcpy(&im->image32[y][x], color, sizeof(INT32));
 }
 
+static void
+put_pixel_48(Imaging im, int x, int y, const void *color) {
+    memcpy(&im->image8[y][x*6], color, 6);
+}
+
 void
 ImagingAccessInit() {
 #define ADD(mode_, get_pixel_, put_pixel_)        \
@@ -199,14 +209,19 @@ ImagingAccessInit() {
     ADD("YCbCr", get_pixel_32, put_pixel_32);
     ADD("LAB", get_pixel_32, put_pixel_32);
     ADD("HSV", get_pixel_32, put_pixel_32);
+    ADD("R16G16B16", get_pixel_48, put_pixel_48);
 }
 
 ImagingAccess
 ImagingAccessNew(Imaging im) {
+    printf("%s:%d\n", __FILE__, __LINE__);
+
     ImagingAccess access = &access_table[hash(im->mode)];
     if (im->mode[0] != access->mode[0] || strcmp(im->mode, access->mode) != 0) {
+        printf("%s:%d\n", __FILE__, __LINE__);
         return NULL;
     }
+    printf("%s:%d\n", __FILE__, __LINE__);
     return access;
 }
 
