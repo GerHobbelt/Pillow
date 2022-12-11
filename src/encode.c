@@ -53,8 +53,6 @@ PyImaging_EncoderNew(int contextsize) {
     ImagingEncoderObject *encoder;
     void *context;
 
-    printf("%s:%d PyImaging_EncoderNew contextsize=%d\n", __FILE__, __LINE__, contextsize);
-
     if (PyType_Ready(&ImagingEncoderType) < 0) {
         return NULL;
     }
@@ -90,8 +88,6 @@ PyImaging_EncoderNew(int contextsize) {
     encoder->im = NULL;
     encoder->pushes_fd = 0;
 
-    printf("%s:%d PyImaging_EncoderNew end\n", __FILE__, __LINE__);
-
     return encoder;
 }
 
@@ -124,8 +120,6 @@ _encode(ImagingEncoderObject *encoder, PyObject *args) {
     PyObject *result;
     int status;
 
-    printf("%s:%d _encode started.\n", __FILE__, __LINE__);
-
     /* Encode to a Python string (allocated by this method) */
 
     Py_ssize_t bufsize = 16384;
@@ -133,8 +127,6 @@ _encode(ImagingEncoderObject *encoder, PyObject *args) {
     if (!PyArg_ParseTuple(args, "|n", &bufsize)) {
         return NULL;
     }
-
-    printf("%s:%d _encode bufsize=%d\n", __FILE__, __LINE__, (int)bufsize);
 
     buf = PyBytes_FromStringAndSize(NULL, bufsize);
     if (!buf) {
@@ -149,13 +141,6 @@ _encode(ImagingEncoderObject *encoder, PyObject *args) {
         return NULL;
     }
 
-    printf(
-        "%s:%d _encode end. status=%d errcode=%d\n",
-        __FILE__,
-        __LINE__,
-        status,
-        encoder->state.errcode);
-
     result = Py_BuildValue("iiO", status, encoder->state.errcode, buf);
 
     Py_DECREF(buf); /* must release buffer!!! */
@@ -167,8 +152,6 @@ static PyObject *
 _encode_to_pyfd(ImagingEncoderObject *encoder) {
     PyObject *result;
     int status;
-
-    printf("%s:%d\n", __FILE__, __LINE__);
 
     if (!encoder->pushes_fd) {
         // UNDONE, appropriate errcode???
@@ -188,8 +171,6 @@ _encode_to_file(ImagingEncoderObject *encoder, PyObject *args) {
     UINT8 *buf;
     int status;
     ImagingSectionCookie cookie;
-
-    printf("%s:%d\n", __FILE__, __LINE__);
 
     /* Encode to a file handle */
 
@@ -241,8 +222,6 @@ _setimage(ImagingEncoderObject *encoder, PyObject *args) {
     Imaging im;
     ImagingCodecState state;
     Py_ssize_t x0, y0, x1, y1;
-
-    printf("%s:%d _setimage start\n", __FILE__, __LINE__);
 
     /* Define where image data should be stored */
 
@@ -303,8 +282,6 @@ _setimage(ImagingEncoderObject *encoder, PyObject *args) {
 
     Py_INCREF(Py_None);
 
-    printf("%s:%d _setimage end\n", __FILE__, __LINE__);
-
     return Py_None;
 }
 
@@ -312,8 +289,6 @@ static PyObject *
 _setfd(ImagingEncoderObject *encoder, PyObject *args) {
     PyObject *fd;
     ImagingCodecState state;
-
-    printf("%s:%d\n", __FILE__, __LINE__);
 
     if (!PyArg_ParseTuple(args, "O", &fd)) {
         return NULL;
@@ -392,8 +367,6 @@ get_packer(ImagingEncoderObject *encoder, const char *mode, const char *rawmode)
     int bits;
     ImagingShuffler pack;
 
-    printf("%s:%d get_packer %s %s\n", __FILE__, __LINE__, mode, rawmode);
-
     pack = ImagingFindPacker(mode, rawmode, &bits);
     if (!pack) {
         Py_DECREF(encoder);
@@ -415,8 +388,6 @@ PyObject *
 PyImaging_EpsEncoderNew(PyObject *self, PyObject *args) {
     ImagingEncoderObject *encoder;
 
-    printf("%s:%d\n", __FILE__, __LINE__);
-
     encoder = PyImaging_EncoderNew(0);
     if (encoder == NULL) {
         return NULL;
@@ -434,8 +405,6 @@ PyImaging_EpsEncoderNew(PyObject *self, PyObject *args) {
 PyObject *
 PyImaging_GifEncoderNew(PyObject *self, PyObject *args) {
     ImagingEncoderObject *encoder;
-
-    printf("%s:%d\n", __FILE__, __LINE__);
 
     char *mode;
     char *rawmode;
@@ -470,8 +439,6 @@ PyObject *
 PyImaging_PcxEncoderNew(PyObject *self, PyObject *args) {
     ImagingEncoderObject *encoder;
 
-    printf("%s:%d\n", __FILE__, __LINE__);
-
     char *mode;
     char *rawmode;
     Py_ssize_t bits = 8;
@@ -501,8 +468,6 @@ PyImaging_PcxEncoderNew(PyObject *self, PyObject *args) {
 PyObject *
 PyImaging_RawEncoderNew(PyObject *self, PyObject *args) {
     ImagingEncoderObject *encoder;
-
-    printf("%s:%d PyImaging_RawEncoderNew\n", __FILE__, __LINE__);
 
     char *mode;
     char *rawmode;
@@ -538,8 +503,6 @@ PyObject *
 PyImaging_TgaRleEncoderNew(PyObject *self, PyObject *args) {
     ImagingEncoderObject *encoder;
 
-    printf("%s:%d\n", __FILE__, __LINE__);
-
     char *mode;
     char *rawmode;
     Py_ssize_t ystep = 1;
@@ -572,8 +535,6 @@ PyObject *
 PyImaging_XbmEncoderNew(PyObject *self, PyObject *args) {
     ImagingEncoderObject *encoder;
 
-    printf("%s:%d\n", __FILE__, __LINE__);
-
     encoder = PyImaging_EncoderNew(0);
     if (encoder == NULL) {
         return NULL;
@@ -599,8 +560,6 @@ PyImaging_XbmEncoderNew(PyObject *self, PyObject *args) {
 PyObject *
 PyImaging_ZipEncoderNew(PyObject *self, PyObject *args) {
     ImagingEncoderObject *encoder;
-
-    printf("%s:%d\n", __FILE__, __LINE__);
 
     char *mode;
     char *rawmode;
@@ -677,8 +636,6 @@ PyImaging_ZipEncoderNew(PyObject *self, PyObject *args) {
 PyObject *
 PyImaging_LibTiffEncoderNew(PyObject *self, PyObject *args) {
     ImagingEncoderObject *encoder;
-
-    printf("%s:%d\n", __FILE__, __LINE__);
 
     char *mode;
     char *rawmode;
@@ -1085,8 +1042,6 @@ PyObject *
 PyImaging_JpegEncoderNew(PyObject *self, PyObject *args) {
     ImagingEncoderObject *encoder;
 
-    printf("%s:%d\n", __FILE__, __LINE__);
-
     char *mode;
     char *rawmode;
     Py_ssize_t quality = 0;
@@ -1248,8 +1203,6 @@ PyObject *
 PyImaging_Jpeg2KEncoderNew(PyObject *self, PyObject *args) {
     ImagingEncoderObject *encoder;
     JPEG2KENCODESTATE *context;
-
-    printf("%s:%d\n", __FILE__, __LINE__);
 
     char *mode;
     char *format;

@@ -108,7 +108,7 @@
 #define WITH_THREADING   /* "friendly" threading support */
 #define WITH_UNSHARPMASK /* Kevin Cazabon's unsharpmask module */
 
-// #undef VERBOSE
+#undef VERBOSE
 
 #define B16(p, i) ((((int)p[(i)]) << 8) + p[(i) + 1])
 #define L16(p, i) ((((int)p[(i) + 1]) << 8) + p[(i)])
@@ -165,8 +165,6 @@ static PyTypeObject PixelAccess_Type;
 PyObject *
 PyImagingNew(Imaging imOut) {
     ImagingObject *imagep;
-
-    printf("PyImagingNew imOut=%p\n", imOut);
 
     if (!imOut) {
         return NULL;
@@ -628,8 +626,6 @@ _fill(PyObject *self, PyObject *args) {
     xsize = ysize = 256;
     color = NULL;
 
-    printf("%s:%d\n", __FILE__, __LINE__);
-
     if (!PyArg_ParseTuple(args, "s|(ii)O", &mode, &xsize, &ysize, &color)) {
         printf("%s:%d\n", __FILE__, __LINE__);
         return NULL;
@@ -650,8 +646,6 @@ _fill(PyObject *self, PyObject *args) {
     }
 
     (void)ImagingFill(im, buffer);
-
-    printf("%s:%d\n", __FILE__, __LINE__);
 
     return PyImagingNew(im);
 }

@@ -36,8 +36,6 @@ class ModeDescriptor:
 def getmode(mode):
     """Gets a mode descriptor for the given mode."""
 
-    print("ImageMode getmode {0}".format(mode))
-
     global _modes
     if not _modes:
         # initialize mode cache

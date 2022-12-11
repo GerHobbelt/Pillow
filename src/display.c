@@ -48,7 +48,6 @@ static PyTypeObject ImagingDisplayType;
 
 static ImagingDisplayObject *
 _new(const char *mode, int xsize, int ysize) {
-    printf("%s:%d\n", __FILE__, __LINE__);
 
     ImagingDisplayObject *display;
 

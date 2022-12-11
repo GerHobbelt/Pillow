@@ -603,7 +603,6 @@ ImagingUnpackRGB(UINT8 *_out, const UINT8 *in, int pixels) {
 
 void
 ImagingUnpackR16G16B16(UINT8 *_out, const UINT8 *in, int pixels) {
-    printf("ImagingUnpackR16G16B16 pixels=%d\n", pixels);
     memcpy(_out, in, pixels * 6);
 }
 
@@ -1786,7 +1785,6 @@ static struct {
 ImagingShuffler
 ImagingFindUnpacker(const char *mode, const char *rawmode, int *bits_out) {
     int i;
-    printf("%s:%d mode=%s rawmode=%s\n", __FILE__, __LINE__, mode, rawmode);
 
     /* find a suitable pixel unpacker */
     for (i = 0; unpackers[i].rawmode; i++) {
@@ -1796,13 +1794,11 @@ ImagingFindUnpacker(const char *mode, const char *rawmode, int *bits_out) {
                 *bits_out = unpackers[i].bits;
             }
 
-            printf("%s:%d\n", __FILE__, __LINE__);
             return unpackers[i].unpack;
         }
     }
 
     /* FIXME: configure a general unpacker based on the type codes... */
 
-    printf("%s:%d\n", __FILE__, __LINE__);
     return NULL;
 }

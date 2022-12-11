@@ -214,14 +214,11 @@ ImagingAccessInit() {
 
 ImagingAccess
 ImagingAccessNew(Imaging im) {
-    printf("%s:%d\n", __FILE__, __LINE__);
-
     ImagingAccess access = &access_table[hash(im->mode)];
     if (im->mode[0] != access->mode[0] || strcmp(im->mode, access->mode) != 0) {
         printf("%s:%d\n", __FILE__, __LINE__);
         return NULL;
     }
-    printf("%s:%d\n", __FILE__, __LINE__);
     return access;
 }
 

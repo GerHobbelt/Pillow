@@ -25,14 +25,10 @@ ImagingFill(Imaging im, const void *colour) {
     int x, y;
     ImagingSectionCookie cookie;
 
-    printf("%s:%d\n", __FILE__, __LINE__);
-
     if (im->type == IMAGING_TYPE_SPECIAL) {
-        printf("%s:%d\n", __FILE__, __LINE__);
         /* use generic API */
         ImagingAccess access = ImagingAccessNew(im);
         if (access) {
-            printf("%s:%d\n", __FILE__, __LINE__);
             for (y = 0; y < im->ysize; y++) {
                 for (x = 0; x < im->xsize; x++) {
                     access->put_pixel(im, x, y, colour);
@@ -40,37 +36,29 @@ ImagingFill(Imaging im, const void *colour) {
             }
             ImagingAccessDelete(im, access);
         } else {
-            printf("%s:%d\n", __FILE__, __LINE__);
             /* wipe the image */
             for (y = 0; y < im->ysize; y++) {
                 memset(im->image[y], 0, im->linesize);
             }
         }
-        printf("%s:%d\n", __FILE__, __LINE__);
     } else {
-        printf("%s:%d\n", __FILE__, __LINE__);
         int64_t c = 0L;
         ImagingSectionEnter(&cookie);
         memcpy(&c, colour, im->pixelsize);
         if (im->image32 && c != 0L) {
-            printf("%s:%d\n", __FILE__, __LINE__);
             for (y = 0; y < im->ysize; y++) {
                 for (x = 0; x < im->xsize; x++) {
                     im->image32[y][x] = c;
                 }
             }
         } else {
-            printf("%s:%d\n", __FILE__, __LINE__);
             unsigned char cc = (unsigned char)*(UINT8 *)colour;
             for (y = 0; y < im->ysize; y++) {
                 memset(im->image[y], cc, im->linesize);
             }
         }
-        printf("%s:%d\n", __FILE__, __LINE__);
         ImagingSectionLeave(&cookie);
     }
-
-    printf("%s:%d\n", __FILE__, __LINE__);
 
     return im;
 }

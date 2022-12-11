@@ -61,8 +61,6 @@ PyImaging_DecoderNew(int contextsize) {
     ImagingDecoderObject *decoder;
     void *context;
 
-    printf("%s:%d PyImaging_DecoderNew\n", __FILE__, __LINE__);
-
     if (PyType_Ready(&ImagingDecoderType) < 0) {
         printf("%s:%d\n", __FILE__, __LINE__);
         return NULL;
@@ -104,7 +102,6 @@ PyImaging_DecoderNew(int contextsize) {
        having it pushed */
     decoder->pulls_fd = 0;
 
-    printf("%s:%d\n", __FILE__, __LINE__);
     return decoder;
 }
 
@@ -127,26 +124,21 @@ _decode(ImagingDecoderObject *decoder, PyObject *args) {
     int status;
     ImagingSectionCookie cookie;
 
-    printf("%s:%d _decode\n", __FILE__, __LINE__);
-
     if (!PyArg_ParseTuple(args, "y#", &buffer, &bufsize)) {
         printf("%s:%d\n", __FILE__, __LINE__);
         return NULL;
     }
 
     if (!decoder->pulls_fd) {
-        printf("%s:%d\n", __FILE__, __LINE__);
         ImagingSectionEnter(&cookie);
     }
 
     status = decoder->decode(decoder->im, &decoder->state, buffer, bufsize);
 
     if (!decoder->pulls_fd) {
-        printf("%s:%d\n", __FILE__, __LINE__);
         ImagingSectionLeave(&cookie);
     }
 
-    printf("%s:%d _decode end. status=%d decoder->state.errcode=%d\n", __FILE__, __LINE__, status, decoder->state.errcode);
     return Py_BuildValue("ii", status, decoder->state.errcode);
 }
 
@@ -172,8 +164,6 @@ _setimage(ImagingDecoderObject *decoder, PyObject *args) {
     int x0, y0, x1, y1;
 
     x0 = y0 = x1 = y1 = 0;
-
-    printf("%s:%d _setimage\n", __FILE__, __LINE__);
 
     /* FIXME: should publish the ImagingType descriptor */
     if (!PyArg_ParseTuple(args, "O|(iiii)", &op, &x0, &y0, &x1, &y1)) {
@@ -209,7 +199,6 @@ _setimage(ImagingDecoderObject *decoder, PyObject *args) {
     }
 
     /* Allocate memory buffer (if bits field is set) */
-    printf(" state->bits=%d state->bytes=%d state->buffer=%p\n", state->bits, state->bytes, state->buffer);
     if (state->bits > 0) {
         if (!state->bytes) {
             if (state->xsize > ((INT_MAX / state->bits) - 7)) {
@@ -233,7 +222,6 @@ _setimage(ImagingDecoderObject *decoder, PyObject *args) {
     decoder->lock = op;
 
     Py_INCREF(Py_None);
-    printf("%s:%d\n", __FILE__, __LINE__);
     return Py_None;
 }
 
@@ -316,8 +304,6 @@ int
 get_unpacker(ImagingDecoderObject *decoder, const char *mode, const char *rawmode) {
     int bits;
     ImagingShuffler unpack;
-
-    printf("%s:%d get_unpacker\n", __FILE__, __LINE__);
 
     unpack = ImagingFindUnpacker(mode, rawmode, &bits);
     if (!unpack) {
@@ -648,8 +634,6 @@ PyImaging_RawDecoderNew(PyObject *self, PyObject *args) {
     int stride = 0;
     int ystep = 1;
 
-    printf("PyImaging_RawDecoderNew\n");
-
     if (!PyArg_ParseTuple(args, "ss|ii", &mode, &rawmode, &stride, &ystep)) {
         printf("%s:%d\n", __FILE__, __LINE__);
         return NULL;
@@ -665,8 +649,6 @@ PyImaging_RawDecoderNew(PyObject *self, PyObject *args) {
         printf("%s:%d\n", __FILE__, __LINE__);
         return NULL;
     }
-
-    printf("PyImaging_RawDecoderNew mode=%s rawmode=%s stride=%d ystep=%d\n", mode, rawmode, stride, ystep);
 
     decoder->decode = ImagingRawDecode;
 
