@@ -1,6 +1,6 @@
 # Pillow quick hack to support R16G16B16 mode
 
-Use with pillow-avif-plugin to write HDR10PQ AVIF image file https://github.com/manoreken2/pillow-avif-plugin
+Use with pillow-avif-plugin to write HDR10PQ AVIF image file https://github.com/manoreken2/pillow-avif-plugin-HDR10
 
 ## Usage
 
