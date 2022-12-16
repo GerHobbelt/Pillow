@@ -3019,6 +3019,8 @@ def fromarray(obj, mode=None):
         else:
             obj = obj.tostring()
 
+    #print("mode={0} rawmode={1}".format(mode, rawmode));
+
     return frombuffer(mode, size, obj, "raw", rawmode, 0, 1)
 
 
@@ -3060,7 +3062,7 @@ _fromarray_typemap = {
     ((1, 1), ">f8"): ("F", "F;64BF"),
     ((1, 1, 2), "|u1"): ("LA", "LA"),
     ((1, 1, 3), "|u1"): ("RGB", "RGB"),
-    ((1, 1, 3), "|u1"): ("R16G16B16", "R16G16B16"),
+    ((1, 1, 3), "|u2"): ("R16G16B16", "R16G16B16"),
     ((1, 1, 4), "|u1"): ("RGBA", "RGBA"),
     # shortcuts:
     ((1, 1), _ENDIAN + "i4"): ("I", "I"),
