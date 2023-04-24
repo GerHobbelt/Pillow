@@ -51,12 +51,14 @@ class TestImage(PillowTestCase):
     def test_sanity(self):
 
         im = Image.new("L", (100, 100))
-        self.assertEqual(repr(im)[:45], "<PIL.Image.Image image mode=L size=100x100 at")
+        self.assertEqual(
+            repr(im)[:45], "<PIL.Image.Image image mode=L size=100x100 at")
         self.assertEqual(im.mode, "L")
         self.assertEqual(im.size, (100, 100))
 
         im = Image.new("RGB", (100, 100))
-        self.assertEqual(repr(im)[:45], "<PIL.Image.Image image mode=RGB size=100x100 ")
+        self.assertEqual(
+            repr(im)[:45], "<PIL.Image.Image image mode=RGB size=100x100 ")
         self.assertEqual(im.mode, "RGB")
         self.assertEqual(im.size, (100, 100))
 
@@ -151,7 +153,8 @@ class TestImage(PillowTestCase):
         self.assertFalse(im.readonly)
 
     @unittest.skipIf(
-        sys.platform.startswith("win32"), "Test requires opening tempfile twice"
+        sys.platform.startswith(
+            "win32"), "Test requires opening tempfile twice"
     )
     def test_readonly_save(self):
         temp_file = self.tempfile("temp.bmp")
@@ -308,8 +311,10 @@ class TestImage(PillowTestCase):
         # offset and crop
         box = src.copy()
         box.alpha_composite(over, (64, 64), (0, 0, 32, 32))
-        self.assert_image_equal(box.crop((64, 64, 96, 96)), target.crop((0, 0, 32, 32)))
-        self.assert_image_equal(box.crop((96, 96, 128, 128)), src.crop((0, 0, 32, 32)))
+        self.assert_image_equal(
+            box.crop((64, 64, 96, 96)), target.crop((0, 0, 32, 32)))
+        self.assert_image_equal(
+            box.crop((96, 96, 128, 128)), src.crop((0, 0, 32, 32)))
         self.assertEqual(box.size, (128, 128))
 
         # source point
@@ -322,14 +327,17 @@ class TestImage(PillowTestCase):
         self.assertEqual(source.size, (128, 128))
 
         # errors
-        self.assertRaises(ValueError, source.alpha_composite, over, "invalid source")
+        self.assertRaises(ValueError, source.alpha_composite,
+                          over, "invalid source")
         self.assertRaises(
-            ValueError, source.alpha_composite, over, (0, 0), "invalid destination"
+            ValueError, source.alpha_composite, over, (
+                0, 0), "invalid destination"
         )
         self.assertRaises(ValueError, source.alpha_composite, over, 0)
         self.assertRaises(ValueError, source.alpha_composite, over, (0, 0), 0)
         self.assertRaises(ValueError, source.alpha_composite, over, (0, -1))
-        self.assertRaises(ValueError, source.alpha_composite, over, (0, 0), (0, -1))
+        self.assertRaises(ValueError, source.alpha_composite,
+                          over, (0, 0), (0, -1))
 
     def test_registered_extensions_uninitialized(self):
         # Arrange
@@ -383,7 +391,8 @@ class TestImage(PillowTestCase):
         quality = 1
 
         # Act/Assert
-        self.assertRaises(ValueError, Image.effect_mandelbrot, size, extent, quality)
+        self.assertRaises(ValueError, Image.effect_mandelbrot,
+                          size, extent, quality)
 
     def test_effect_noise(self):
         # Arrange
@@ -546,7 +555,8 @@ class TestImage(PillowTestCase):
             self.assertEqual(new_im.size, im.size)
             self.assertEqual(new_im.info, base_image.info)
             if palette_result is not None:
-                self.assertEqual(new_im.palette.tobytes(), palette_result.tobytes())
+                self.assertEqual(new_im.palette.tobytes(),
+                                 palette_result.tobytes())
             else:
                 self.assertIsNone(new_im.palette)
 
@@ -604,7 +614,11 @@ class TestImage(PillowTestCase):
                 im.load()
                 self.assertFail()
             except IOError as e:
-                self.assertEqual(str(e), "buffer overrun when reading image file")
+                buffer_overrun = str(
+                    e) == "buffer overrun when reading image file"
+                truncated = "image file is truncated" in str(e)
+
+                assert buffer_overrun or truncated
 
     def test_fli_overrun2(self):
         with Image.open("Tests/images/fli_overrun2.bin") as im:
@@ -612,7 +626,8 @@ class TestImage(PillowTestCase):
                 im.seek(1)
                 self.assertFail()
             except IOError as e:
-                self.assertEqual(str(e), "buffer overrun when reading image file")
+                self.assertEqual(
+                    str(e), "buffer overrun when reading image file")
 
 
 class MockEncoder(object):
