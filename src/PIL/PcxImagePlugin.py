@@ -65,16 +65,16 @@ class PcxImageFile(ImageFile.ImageFile):
         logger.debug("BBox: %s %s %s %s", *bbox)
 
         # format
-        version = i8(s[1])
-        bits = i8(s[3])
-        planes = i8(s[65])
-        stride = i16(s, 66)
+        version = s[1]
+        bits = s[3]
+        planes = s[65]
+        ignored_stride = i16(s, 66)
         logger.debug(
             "PCX version %s, bits %s, planes %s, stride %s",
             version,
             bits,
             planes,
-            stride,
+            ignored_stride,
         )
 
         self.info["dpi"] = i16(s, 12), i16(s, 14)
@@ -111,6 +111,11 @@ class PcxImageFile(ImageFile.ImageFile):
 
         self.mode = mode
         self._size = bbox[2] - bbox[0], bbox[3] - bbox[1]
+
+        # don't trust the passed in stride. Calculate for ourselves.
+        # CVE-2020-35655
+        stride = (self._size[0] * bits + 7) // 8
+        stride += stride % 2
 
         bbox = (0, 0) + self.size
         logger.debug("size: %sx%s", *self.size)

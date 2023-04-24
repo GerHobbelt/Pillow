@@ -597,6 +597,7 @@ class TestImage(PillowTestCase):
             "sgi_overrun_expandrow2.bin",
             "pcx_overrun.bin",
             "pcx_overrun2.bin",
+            "ossfuzz-4836216264589312.pcx",
         ]:
             im = Image.open(os.path.join("Tests/images", file))
             try:
@@ -605,6 +606,7 @@ class TestImage(PillowTestCase):
             except IOError as e:
                 self.assertEqual(str(e), "buffer overrun when reading image file")
 
+    def test_fli_overrun2(self):
         with Image.open("Tests/images/fli_overrun2.bin") as im:
             try:
                 im.seek(1)
