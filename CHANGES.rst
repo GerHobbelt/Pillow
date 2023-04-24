@@ -34,6 +34,11 @@ Changelog (Pillow)
   was non-zero, potentally leading to an infinite loop on load.
   [rickprice]
 
+- Fix CVE-2020-35653: In Pillow before 8.1.0, PcxDecode has a buffer over-read
+  when decoding a crafted PCX file because the user-supplied stride value is
+  trusted for buffer calculations.
+  [rickprice]
+
 6.2.2.4 (2023-03-29)
 ------------------
 
