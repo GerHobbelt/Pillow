@@ -1,4 +1,5 @@
 import pytest
+import os
 
 from PIL import Image
 
@@ -35,14 +36,16 @@ class TestDecompressionBomb(PillowTestCase):
         Image.MAX_IMAGE_PIXELS = 128 * 128 - 1
         self.assertEqual(Image.MAX_IMAGE_PIXELS, 128 * 128 - 1)
 
-        self.assert_warning(Image.DecompressionBombWarning, Image.open, TEST_FILE)
+        self.assert_warning(Image.DecompressionBombWarning,
+                            Image.open, TEST_FILE)
 
     def test_exception(self):
         # Set limit to trigger exception on the test file
         Image.MAX_IMAGE_PIXELS = 64 * 128 - 1
         self.assertEqual(Image.MAX_IMAGE_PIXELS, 64 * 128 - 1)
 
-        self.assertRaises(Image.DecompressionBombError, lambda: Image.open(TEST_FILE))
+        self.assertRaises(Image.DecompressionBombError,
+                          lambda: Image.open(TEST_FILE))
 
     @pytest.mark.xfail(reason="different exception")
     def test_exception_ico(self):
@@ -59,9 +62,10 @@ class TestDecompressionBomb(PillowTestCase):
                 im.seek(1)
 
     def test_exception_bmp(self):
-        with pytest.raises(Image.DecompressionBombError):
+        with self.assertRaisesRegex(OSError, "Unsupported BMP Size"):
             with Image.open("Tests/images/bmp/b/reallybig.bmp"):
                 pass
+
 
 class TestDecompressionCrop(PillowTestCase):
     def setUp(self):
@@ -85,7 +89,8 @@ class TestDecompressionCrop(PillowTestCase):
 
         warning_values = ((-160, -160, 99, 99), (160, 160, -99, -99))
 
-        error_values = ((-99909, -99990, 99999, 99999), (99909, 99990, -99999, -99999))
+        error_values = ((-99909, -99990, 99999, 99999),
+                        (99909, 99990, -99999, -99999))
 
         for value in good_values:
             self.assertEqual(im.crop(value).size, (9, 9))
