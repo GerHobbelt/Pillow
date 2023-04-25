@@ -32,3 +32,5 @@ This release addresses several critical CVEs.
 
 :cve:`CVE-2020-35653`: In Pillow before 8.1.0, PcxDecode has a buffer over-read when decoding a crafted PCX file because the user-supplied stride value is trusted for buffer calculations.
 
+
+:cve:`CVE-2022-45198`: Pillow before 9.2.0 performs Improper Handling of Highly Compressed GIF Data (Data Amplification).
