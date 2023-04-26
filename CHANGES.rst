@@ -39,6 +39,10 @@ Changelog (Pillow)
   trusted for buffer calculations.
   [rickprice]
 
+- Fix CVE-2022-45198: Pillow before 9.2.0 performs Improper Handling of Highly
+  Compressed GIF Data (Data Amplification).
+  [rickprice]
+
 6.2.2.4 (2023-03-29)
 ------------------
 

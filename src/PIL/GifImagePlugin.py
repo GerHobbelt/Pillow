@@ -238,14 +238,16 @@ class GifImageFile(ImageFile.ImageFile):
                 x1, y1 = x0 + i16(s[4:]), y0 + i16(s[6:])
                 if x1 > self.size[0] or y1 > self.size[1]:
                     self._size = max(x1, self.size[0]), max(y1, self.size[1])
+                    Image._decompression_bomb_check(self._size)
                 self.dispose_extent = x0, y0, x1, y1
-                flags = i8(s[8])
+                flags = s[8]
 
                 interlace = (flags & 64) != 0
 
                 if flags & 128:
                     bits = (flags & 7) + 1
-                    self.palette = ImagePalette.raw("RGB", self.fp.read(3 << bits))
+                    self.palette = ImagePalette.raw(
+                        "RGB", self.fp.read(3 << bits))
 
                 # image data
                 bits = i8(self.fp.read(1))
@@ -266,7 +268,8 @@ class GifImageFile(ImageFile.ImageFile):
             elif self.disposal_method == 2:
                 # replace with background colour
                 Image._decompression_bomb_check(self.size)
-                self.dispose = Image.core.fill("P", self.size, self.info["background"])
+                self.dispose = Image.core.fill(
+                    "P", self.size, self.info["background"])
             else:
                 # replace with previous contents
                 if self.im:
@@ -304,7 +307,8 @@ class GifImageFile(ImageFile.ImageFile):
             # we do this by pasting the updated area onto the previous
             # frame which we then use as the current image content
             updated = self._crop(self.im, self.dispose_extent)
-            self._prev_im.paste(updated, self.dispose_extent, updated.convert("RGBA"))
+            self._prev_im.paste(updated, self.dispose_extent,
+                                updated.convert("RGBA"))
             self.im = self._prev_im
         self._prev_im = self.im.copy()
 
@@ -415,7 +419,8 @@ def _write_single_frame(im, fp, palette):
     _write_local_header(fp, im, (0, 0), flags)
 
     im_out.encoderconfig = (8, get_interlace(im))
-    ImageFile._save(im_out, fp, [("gif", (0, 0) + im.size, 0, RAWMODE[im_out.mode])])
+    ImageFile._save(
+        im_out, fp, [("gif", (0, 0) + im.size, 0, RAWMODE[im_out.mode])])
 
     fp.write(b"\0")  # end of image data
 
@@ -451,9 +456,11 @@ def _write_multiple_frames(im, fp, palette):
                     if background_im is None:
                         background = _get_background(
                             im,
-                            im.encoderinfo.get("background", im.info.get("background")),
+                            im.encoderinfo.get(
+                                "background", im.info.get("background")),
                         )
-                        background_im = Image.new("P", im_frame.size, background)
+                        background_im = Image.new(
+                            "P", im_frame.size, background)
                         background_im.putpalette(im_frames[0]["im"].palette)
                     base_im = background_im
                 else:
@@ -472,7 +479,8 @@ def _write_multiple_frames(im, fp, palette):
                     continue
             else:
                 bbox = None
-            im_frames.append({"im": im_frame, "bbox": bbox, "encoderinfo": encoderinfo})
+            im_frames.append({"im": im_frame, "bbox": bbox,
+                             "encoderinfo": encoderinfo})
 
     if len(im_frames) > 1:
         for frame_data in im_frames:
@@ -573,7 +581,7 @@ def _write_local_header(fp, im, offset, flags):
     if "comment" in im.encoderinfo and 1 <= len(im.encoderinfo["comment"]):
         fp.write(b"!" + o8(254))  # extension intro
         for i in range(0, len(im.encoderinfo["comment"]), 255):
-            subblock = im.encoderinfo["comment"][i : i + 255]
+            subblock = im.encoderinfo["comment"][i: i + 255]
             fp.write(o8(len(subblock)) + subblock)
         fp.write(o8(0))
     if "loop" in im.encoderinfo:
@@ -759,7 +767,8 @@ def _get_global_header(im, info):
     for extensionKey in ["transparency", "duration", "loop", "comment"]:
         if info and extensionKey in info:
             if (extensionKey == "duration" and info[extensionKey] == 0) or (
-                extensionKey == "comment" and not (1 <= len(info[extensionKey]) <= 255)
+                extensionKey == "comment" and not (
+                    1 <= len(info[extensionKey]) <= 255)
             ):
                 continue
             version = b"89a"
@@ -796,7 +805,8 @@ def _write_frame_data(fp, im_frame, offset, params):
         _write_local_header(fp, im_frame, offset, 0)
 
         ImageFile._save(
-            im_frame, fp, [("gif", (0, 0) + im_frame.size, 0, RAWMODE[im_frame.mode])]
+            im_frame, fp, [("gif", (0, 0) + im_frame.size,
+                            0, RAWMODE[im_frame.mode])]
         )
 
         fp.write(b"\0")  # end of image data
