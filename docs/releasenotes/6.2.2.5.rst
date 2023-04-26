@@ -29,3 +29,6 @@ This release addresses several critical CVEs.
 :cve:`CVE-2021-28677`: An issue was discovered in Pillow before 8.2.0. For EPS data, the readline implementation used in EPSImageFile has to deal with any combination of \r and \n as line endings. It used an accidentally quadratic method of accumulating lines while looking for a line ending. A malicious EPS file could use this to perform a DoS of Pillow in the open phase, before an image was accepted for opening.
 
 :cve:`CVE-2022-45199`: Pillow before 9.3.0 allows denial of service via SAMPLESPERPIXEL.
+
+:cve:`CVE-2020-35653`: In Pillow before 8.1.0, PcxDecode has a buffer over-read when decoding a crafted PCX file because the user-supplied stride value is trusted for buffer calculations.
+
