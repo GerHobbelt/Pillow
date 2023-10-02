@@ -1,0 +1,8 @@
+[binaries]
+c = 'clang'
+strip = 'strip'
+[host_machine]
+system = 'darwin'
+cpu_family = 'aarch64'
+cpu = 'arm'
+endian = 'little'

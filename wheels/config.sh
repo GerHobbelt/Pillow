@@ -26,6 +26,11 @@ LIBWEBP_VERSION=1.3.2
 BZIP2_VERSION=1.0.8
 LIBXCB_VERSION=1.16
 BROTLI_VERSION=1.1.0
+NASM_VERSION=2.15.05
+DAV1D_VERSION=1.2.1
+RAV1E_VERSION=p20230926
+LIBYUV_SHA=464c51a0
+LIBAVIF_VERSION=12e066686892df1c8201cfb0d8d6c68ad248c872
 
 if [[ -n "$IS_MACOS" ]] && [[ "$PLAT" == "x86_64" ]]; then
     function build_openjpeg {
@@ -47,6 +52,119 @@ function build_brotli {
         cp /usr/local/lib64/libbrotli* /usr/local/lib
         cp /usr/local/lib64/pkgconfig/libbrotli* /usr/local/lib/pkgconfig
     fi
+}
+
+function build_nasm {
+    if [ "$PLAT" == "arm64" ] || [ "$PLAT" == "aarch64" ]; then return; fi
+    if [ -e nasm-stamp ]; then return; fi
+    build_simple nasm $NASM_VERSION https://www.nasm.us/pub/nasm/releasebuilds/$NASM_VERSION/
+    touch nasm-stamp
+}
+
+function install_rav1e {
+    if [ -n "$IS_MACOS" ] && [ "$PLAT" == "arm64" ]; then
+        librav1e_tgz=librav1e-macos-aarch64.tar.gz
+    elif [ -n "$IS_MACOS" ]; then
+        librav1e_tgz=librav1e-macos.tar.gz
+    elif [ "$PLAT" == "aarch64" ]; then
+        librav1e_tgz=librav1e-linux-aarch64.tar.gz
+    else
+        librav1e_tgz=librav1e-linux-generic.tar.gz
+    fi
+
+    curl -sLo - \
+        https://github.com/xiph/rav1e/releases/download/$RAV1E_VERSION/$librav1e_tgz \
+        | tar -C $BUILD_PREFIX -zxf -
+
+    if [ ! -n "$IS_MACOS" ]; then
+        sed -i 's/-lgcc_s/-lgcc_eh/g' "${BUILD_PREFIX}/lib/pkgconfig/rav1e.pc"
+    fi
+}
+
+function install_ninja {
+    if [ -e ninja-stamp ]; then return; fi
+    if [ -n "$IS_MACOS" ]; then
+        brew install ninja
+    else
+        $PYTHON_EXE -m pip install ninja
+        ln -s $(type -P ninja) /usr/local/bin/ninja-build
+    fi
+    touch ninja-stamp
+}
+
+function build_dav1d {
+    build_nasm
+    install_ninja
+    $PYTHON_EXE -m pip install meson
+
+    local out_dir=$(fetch_unpack \
+        "https://code.videolan.org/videolan/dav1d/-/archive/$DAV1D_VERSION/dav1d-$DAV1D_VERSION.tar.gz")
+
+    local meson_flags=()
+    if [ "$PLAT" == "arm64" ]; then
+        meson_flags+=(--cross-file $(pwd -P)/wheels/dav1d-macos-arm64.cross)
+    fi
+
+    (cd $out_dir \
+        && meson . build \
+              "--prefix=${BUILD_PREFIX}" \
+              --default-library=static \
+              --buildtype=release \
+              -D enable_tools=false \
+              -D enable_tests=false \
+             "${meson_flags[@]}" \
+        && ninja -vC build install)
+}
+
+function build_libyuv {
+    local cmake=$(get_modern_cmake)
+
+    install_ninja
+
+    mkdir -p libyuv-$LIBYUV_SHA
+    (cd libyuv-$LIBYUV_SHA && \
+        fetch_unpack "https://chromium.googlesource.com/libyuv/libyuv/+archive/$LIBYUV_SHA.tar.gz")
+    mkdir -p libyuv-$LIBYUV_SHA/build
+    (cd libyuv-$LIBYUV_SHA/build \
+        && $cmake -G Ninja .. \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+        && ninja -v install)
+}
+
+function build_libavif {
+    local cmake=$(get_modern_cmake)
+    local cmake_flags=()
+
+    build_libyuv
+    build_dav1d
+    install_rav1e
+
+    if [ -n "$IS_MACOS" ]; then
+        # Prevent cmake from using @rpath in install id, so that delocate can
+        # find and bundle the libavif dylib
+        cmake_flags+=(-DCMAKE_INSTALL_NAME_DIR=$BUILD_PREFIX/lib -DCMAKE_MACOSX_RPATH=OFF)
+        if [ "$PLAT" == "arm64" ]; then
+            cmake_flags+=(-DCMAKE_SYSTEM_PROCESSOR=arm64 -DCMAKE_OSX_ARCHITECTURES=arm64)
+        fi
+    fi
+
+    local out_dir=$(fetch_unpack \
+        "https://github.com/AOMediaCodec/libavif/archive/$LIBAVIF_VERSION.tar.gz" \
+        "libavif-$LIBAVIF_VERSION.tar.gz")
+
+    mkdir -p $out_dir/build
+    (cd $out_dir/build \
+        && $cmake .. \
+            -G "Ninja" \
+            -DCMAKE_INSTALL_PREFIX=$BUILD_PREFIX \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_LIBDIR=lib \
+            -DAVIF_CODEC_RAV1E=ON \
+            -DAVIF_CODEC_DAV1D=ON \
+            "${cmake_flags[@]}" \
+        && ninja -v install)
 }
 
 function pre_build {
@@ -85,6 +203,9 @@ function pre_build {
     build_libjpeg_turbo
     if [[ -n "$IS_MACOS" ]]; then
         rm /usr/local/lib/libjpeg.dylib
+        if [[ "$PLAT" == "arm64" ]]; then
+            rm /usr/local/lib/libjpeg.a
+        fi
     fi
     build_tiff
     build_libpng
@@ -118,6 +239,8 @@ function pre_build {
         export FREETYPE_CFLAGS=''
     fi
 
+    build_libavif
+
     # Append licenses
     for filename in wheels/dependency_licenses/*; do
       echo -e "\n\n----\n\n$(basename $filename | cut -f 1 -d '.')\n" | cat >> LICENSE
@@ -142,7 +265,7 @@ function run_tests_in_repo {
 }
 
 EXP_CODECS="jpg jpg_2000 libtiff zlib"
-EXP_MODULES="freetype2 littlecms2 pil tkinter webp"
+EXP_MODULES="avif freetype2 littlecms2 pil tkinter webp"
 EXP_FEATURES="fribidi harfbuzz libjpeg_turbo raqm transp_webp webp_anim webp_mux xcb"
 
 function run_tests {
