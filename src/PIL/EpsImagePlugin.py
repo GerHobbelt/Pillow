@@ -267,7 +267,9 @@ class EpsImageFile(ImageFile.ImageFile):
                 if k == "BoundingBox":
                     if v == "(atend)":
                         reading_trailer_comments = True
-                    elif not self._size:
+                    elif not self._size or (
+                        trailer_reached and reading_trailer_comments
+                    ):
                         try:
                             # Note: The DSC spec says that BoundingBox
                             # fields should be integers, but some drivers
@@ -381,8 +383,7 @@ class EpsImageFile(ImageFile.ImageFile):
 
                 s = str(bytes_mv[:bytes_read], "latin-1")
                 _read_comment(s)
-
-            if bytes_mv[:9] == b"%%Trailer":
+            elif bytes_mv[:9] == b"%%Trailer":
                 trailer_reached = True
             bytes_read = 0
 

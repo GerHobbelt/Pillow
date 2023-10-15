@@ -5,6 +5,15 @@ Changelog (Pillow)
 10.1.0 (unreleased)
 -------------------
 
+- Read bounding box information from the trailer of EPS files if specified #7382
+  [nopperl, radarhere]
+
+- Added reading 8-bit color DDS images #7426
+  [radarhere]
+
+- Added has_transparency_data #7420
+  [radarhere, hugovk]
+
 - Fixed bug when reading BC5S DDS images #7401
   [radarhere]
 
