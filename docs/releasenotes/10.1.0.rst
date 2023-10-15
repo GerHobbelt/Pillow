@@ -24,10 +24,27 @@ TODO
 API Changes
 ===========
 
-TODO
-^^^^
+Accept a list in getpixel()
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-TODO
+py:meth:`~PIL.Image.Image.getpixel` now accepts a list of coordinates, as well
+as a tuple. ::
+
+    from PIL import Image
+    im = Image.new("RGB", (1, 1))
+    im.getpixel((0, 0))
+    im.getpixel([0, 0])
+
+BoxBlur and GaussianBlur allow for different x and y radii
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+py:meth:`~PIL.ImageFilter.BoxBlur` and py:meth:`~PIL.ImageFilter.GaussianBlur`
+now allow a sequence of x and y radii to be specified, rather than a single
+number for both dimensions. ::
+
+    from PIL import ImageFilter
+    ImageFilter.BoxBlur((2, 5))
+    ImageFilter.GaussianBlur((2, 5))
 
 API Additions
 =============
