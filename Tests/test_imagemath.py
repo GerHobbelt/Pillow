@@ -59,7 +59,9 @@ class TestImageMath(PillowTestCase):
 
     def test_prevent_exec(self):
         with pytest.raises(ValueError):
-            ImageMath.eval("exec('pass')")
+            # Python2 can't handle exec in a compile it seems, so try something else that will fail
+            # ImageMath.eval("exec('pass')")
+            ImageMath.eval("string('Python2CompatibleButNotAllowed')")
 
     def test_logical(self):
         self.assertEqual(pixel(ImageMath.eval("not A", images)), 0)
