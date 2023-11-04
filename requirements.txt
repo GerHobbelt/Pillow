@@ -7,7 +7,7 @@ jarn.viewdoc
 olefile
 pycodestyle
 pyflakes
-pyroma
+pyroma<=2.6.1
 pytest
 pytest-cov
 sphinx-rtd-theme

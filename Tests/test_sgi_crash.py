@@ -23,7 +23,7 @@ from PIL import Image
 def test_crashes(test_file):
     with open(test_file, "rb") as f:
         im = Image.open(f)
-        with pytest.raises(OSError):
+        with pytest.raises(IOError):
             im.load()
 
 def test_overrun_crashes():

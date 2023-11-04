@@ -62,7 +62,7 @@ class TestDecompressionBomb(PillowTestCase):
                 im.seek(1)
 
     def test_exception_bmp(self):
-        with self.assertRaisesRegex(OSError, "Unsupported BMP Size"):
+        with self.assertRaisesRegex(IOError, "Unsupported BMP Size"):
             with Image.open("Tests/images/bmp/b/reallybig.bmp"):
                 pass
 

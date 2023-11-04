@@ -109,7 +109,7 @@ class TestFilePng(PillowTestCase):
         # file was checked into Subversion as a text file.
 
         test_file = "Tests/images/broken.png"
-        with pytest.raises(OSError):
+        with pytest.raises(IOError):
             with Image.open(test_file):
                 pass
 
@@ -481,9 +481,7 @@ class TestFilePng(PillowTestCase):
             data = b"\x89" + fd.read()
 
         pngfile = BytesIO(data)
-        with pytest.raises(OSError):
-            with Image.open(pngfile):
-                pass
+        self.assertRaises(IOError, Image.open, pngfile)
 
     def test_trns_rgb(self):
         # Check writing and reading of tRNS chunks for RGB images.

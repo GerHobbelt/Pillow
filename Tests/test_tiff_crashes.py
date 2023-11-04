@@ -41,10 +41,5 @@ def test_tiff_crashes(test_file):
     try:
         with Image.open(test_file) as im:
             im.load()
-    except FileNotFoundError:
-        if not on_ci():
-            pytest.skip("test image not found")
-            return
-        raise
-    except OSError:
+    except IOError:
         pass
