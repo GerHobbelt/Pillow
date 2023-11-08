@@ -553,7 +553,7 @@ def _safe_read(fp, size):
     if size <= SAFEBLOCK:
         data = fp.read(size)
         if len(data) < size:
-            raise OSError("Truncated File Read")
+            raise IOError("Truncated File Read")
         return data
     data = []
     while size > 0:
@@ -563,11 +563,11 @@ def _safe_read(fp, size):
         data.append(block)
         size -= len(block)
     if sum(len(d) for d in data) < size:
-        raise OSError("Truncated File Read")
+        raise IOError("Truncated File Read")
     return b"".join(data)
 
 
-class PyCodecState:
+class PyCodecState(object):
     def __init__(self):
         self.xsize = 0
         self.ysize = 0

@@ -1,6 +1,6 @@
 import io
 
-from PIL import EpsImagePlugin, Image
+from PIL import EpsImagePlugin, Image, UnidentifiedImageError
 import pytest
 
 from .helper import PillowTestCase, hopper, unittest
@@ -54,8 +54,7 @@ class TestFileEps(PillowTestCase):
     def test_invalid_file(self):
         invalid_file = "Tests/images/flower.jpg"
 
-        self.assertRaises(
-            SyntaxError, EpsImagePlugin.EpsImageFile, invalid_file)
+        self.assertRaises(SyntaxError, EpsImagePlugin.EpsImageFile, invalid_file)
 
     @unittest.skipUnless(HAS_GHOSTSCRIPT, "Ghostscript not available")
     def test_cmyk(self):
@@ -265,6 +264,6 @@ class TestFileEps(PillowTestCase):
 )
 def test_timeout(test_file):
     with open(test_file, "rb") as f:
-        with pytest.raises(Image.UnidentifiedImageError):
+        with pytest.raises(UnidentifiedImageError):
             with Image.open(f):
                 pass

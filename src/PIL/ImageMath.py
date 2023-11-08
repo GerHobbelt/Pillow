@@ -268,7 +268,8 @@ def eval(expression, _dict={}, **kw):
     code = compile(expression, "<string>", "eval")
     for name in code.co_names:
         if name not in args and name != "abs":
-            raise ValueError(f"'{name}' not allowed")
+            # raise ValueError(f"'{name}' not allowed")
+            raise ValueError("'%s' not allowed"%(name))
 
     out = builtins.eval(expression, {"__builtins": {"abs": abs}}, args)
     try:

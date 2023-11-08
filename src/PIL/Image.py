@@ -2815,9 +2815,7 @@ def open(fp, mode="r"):
         fp.close()
     for message in accept_warnings:
         warnings.warn(message)
-    raise UnidentifiedImageError(
-        "cannot identify image file %r" % (filename if filename else fp)
-    )
+    raise UnidentifiedImageError("cannot identify image file %r" % (filename if filename else fp))
 
 
 #
