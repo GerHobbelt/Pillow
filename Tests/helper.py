@@ -185,6 +185,7 @@ class PillowTestCase(unittest.TestCase):
                 self.assertTrue(found)
         return result
 
+
     def assert_all_same(self, items, msg=None):
         self.assertEqual(items.count(items[0]), len(items), msg)
 
@@ -359,6 +360,10 @@ def on_ci():
     # Travis and AppVeyor have "CI"
     # Azure Pipelines has "TF_BUILD"
     return "CI" in os.environ or "TF_BUILD" in os.environ
+
+
+def is_big_endian():
+    return sys.byteorder == "big"
 
 
 if sys.platform == "win32":

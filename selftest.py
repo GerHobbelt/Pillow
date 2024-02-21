@@ -5,7 +5,7 @@ from __future__ import print_function
 import os
 import sys
 
-from PIL import Image, features
+from PIL import Image, ImageFilter, features
 
 try:
     Image.core.ping
