@@ -5,6 +5,7 @@ import tempfile
 import time
 
 from PIL import Image, PdfParser
+import pytest
 
 from .helper import PillowTestCase, hopper
 
@@ -277,3 +278,12 @@ class TestFilePdf(PillowTestCase):
         f = io.BytesIO(f.getvalue())
         im.save(f, format="PDF", append=True)
         self.assertGreater(len(f.getvalue()), initial_size)
+
+    # @pytest.mark.timeout(1)
+    def test_redos(self):
+        malicious = b" trailer<<>>" + b"\n" * 3456
+
+        # This particular exception isn't relevant here.
+        # The important thing is it doesn't timeout, cause a ReDoS (CVE-2021-25292).
+        with pytest.raises(PdfParser.PdfFormatError):
+            PdfParser.PdfParser(buf=malicious)
