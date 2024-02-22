@@ -277,3 +277,67 @@ class TestFilePdf(PillowTestCase):
         f = io.BytesIO(f.getvalue())
         im.save(f, format="PDF", append=True)
         self.assertGreater(len(f.getvalue()), initial_size)
+
+    # open the PDF again, check pages and info again
+    with PdfParser.PdfParser(pdf_filename) as pdf:
+        assert len(pdf.pages) == 3
+        assert len(pdf.info) == 8
+        assert PdfParser.decode_text(pdf.info[b"Title"]) == "abc"
+        assert pdf.info.Title == "abc"
+        assert pdf.info.Producer == "PdfParser"
+        assert pdf.info.Keywords == "qw)e\\r(ty"
+        assert pdf.info.Subject == "ghi\uABCD"
+        assert b"CreationDate" in pdf.info
+        assert b"ModDate" in pdf.info
+        check_pdf_pages_consistency(pdf)
+
+
+def test_pdf_info(tmp_path):
+    # make a PDF file
+    pdf_filename = helper_save_as_pdf(
+        tmp_path,
+        "RGB",
+        title="title",
+        author="author",
+        subject="subject",
+        keywords="keywords",
+        creator="creator",
+        producer="producer",
+        creationDate=time.strptime("2000", "%Y"),
+        modDate=time.strptime("2001", "%Y"),
+    )
+
+    # open it, check pages and info
+    with PdfParser.PdfParser(pdf_filename) as pdf:
+        assert len(pdf.info) == 8
+        assert pdf.info.Title == "title"
+        assert pdf.info.Author == "author"
+        assert pdf.info.Subject == "subject"
+        assert pdf.info.Keywords == "keywords"
+        assert pdf.info.Creator == "creator"
+        assert pdf.info.Producer == "producer"
+        assert pdf.info.CreationDate == time.strptime("2000", "%Y")
+        assert pdf.info.ModDate == time.strptime("2001", "%Y")
+        check_pdf_pages_consistency(pdf)
+
+
+def test_pdf_append_to_bytesio():
+    im = hopper("RGB")
+    f = io.BytesIO()
+    im.save(f, format="PDF")
+    initial_size = len(f.getvalue())
+    assert initial_size > 0
+    im = hopper("P")
+    f = io.BytesIO(f.getvalue())
+    im.save(f, format="PDF", append=True)
+    assert len(f.getvalue()) > initial_size
+
+
+@pytest.mark.timeout(1)
+def test_redos():
+    malicious = b" trailer<<>>" + b"\n" * 3456
+
+    # This particular exception isn't relevant here.
+    # The important thing is it doesn't timeout, cause a ReDoS (CVE-2021-25292).
+    with pytest.raises(PdfParser.PdfFormatError):
+        PdfParser.PdfParser(buf=malicious)
