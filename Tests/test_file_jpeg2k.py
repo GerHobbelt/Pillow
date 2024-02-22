@@ -2,7 +2,10 @@ from io import BytesIO
 
 from PIL import Image, Jpeg2KImagePlugin
 
-from .helper import PillowTestCase
+from .helper import (
+    PillowTestCase,
+    is_big_endian,
+)
 
 import pytest
 
@@ -14,6 +17,17 @@ test_card.load()
 # OpenJPEG 2.0.0 outputs this debugging message sometimes; we should
 # ignore it---it doesn't represent a test failure.
 # 'Not enough memory to handle tile data'
+
+
+def roundtrip(im, **options):
+    out = BytesIO()
+    im.save(out, "JPEG2000", **options)
+    test_bytes = out.tell()
+    out.seek(0)
+    im = Image.open(out)
+    im.bytes = test_bytes  # for testing only
+    im.load()
+    return im
 
 
 class TestFileJpeg2k(PillowTestCase):

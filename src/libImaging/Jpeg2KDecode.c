@@ -562,7 +562,6 @@ j2k_decode_entry(Imaging im, ImagingCodecState state)
     unsigned n, tile_height, tile_width;
     int total_component_width = 0;
 
-
     stream = opj_stream_create(BUFFER_SIZE, OPJ_TRUE);
 
     if (!stream) {
