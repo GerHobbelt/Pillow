@@ -254,16 +254,14 @@ class TestFileEps(PillowTestCase):
         self.assertEqual(image.size, (460, 352))
         self.assertEqual(image.format, "EPS")
 
-
 # @pytest.mark.timeout(timeout=5)
-@pytest.mark.parametrize(
-    "test_file",
-    [
-        ("Tests/images/timeout-d675703545fee17acab56e5fec644c19979175de.eps")
-    ],
-)
-def test_timeout(test_file):
-    with open(test_file, "rb") as f:
-        with pytest.raises(UnidentifiedImageError):
-            with Image.open(f):
-                pass
+# @pytest.mark.parametrize(
+#     "test_file",
+#     ["Tests/images/timeout-d675703545fee17acab56e5fec644c19979175de.eps"],
+# )
+# def test_timeout(test_file):
+    def test_timeout(self):
+        with open("Tests/images/timeout-d675703545fee17acab56e5fec644c19979175de.eps", "rb") as f:
+            with pytest.raises(UnidentifiedImageError):
+                with Image.open(f):
+                    pass
