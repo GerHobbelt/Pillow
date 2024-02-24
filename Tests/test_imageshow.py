@@ -62,3 +62,23 @@ class TestImageShow(PillowTestCase):
             hopper().save(f)
             viewer.show_file(file=f)
             # viewer.show_file()
+
+
+try:
+    import IPython
+
+    HAS_IPYTHON = True
+except (OSError, ImportError):
+    HAS_IPYTHON = False
+
+@unittest.skipIf(not HAS_IPYTHON, "IPython not installed")
+def test_ipythonviewer():
+    for viewer in ImageShow._viewers:
+        if isinstance(viewer, ImageShow.IPythonViewer):
+            test_viewer = viewer
+            break
+    else:
+        assert False
+
+    im = hopper()
+    assert test_viewer.show(im) == 1
