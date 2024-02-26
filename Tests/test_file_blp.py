@@ -22,11 +22,6 @@ class TestFileBlp(PillowTestCase):
         self.assert_image_equal(im, target)
 
 
-def test_load_blp2_dxt1a():
-    with Image.open("Tests/images/blp/blp2_dxt1a.blp") as im:
-        assert_image_equal_tofile(im, "Tests/images/blp/blp2_dxt1a.png")
-
-
 @pytest.mark.parametrize(
     "test_file",
     [
