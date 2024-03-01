@@ -2,7 +2,51 @@
 Changelog (Pillow)
 ==================
 
-6.2.2.5 (date TBD)
+6.2.2.6 (2024-03-01)
+------------------
+
+- Fix cve-2021-25287: An issue was discovered in Pillow before 8.2.0. There is an out-of-bounds
+  read in J2kDecode, in j2ku_graya_la.
+  [rickprice]
+
+- Fix cve-2021-25288: An issue was discovered in Pillow before 8.2.0. There is an out-of-bounds
+  read in J2kDecode, in j2ku_graya_la.
+  [rickprice]
+
+- Fix cve-2021-34552: Pillow through 8.2.0 and PIL (aka Python Imaging Library) through 1.1.7
+  allow an attacker to pass controlled parameters directly into a convert function to trigger a
+  buffer overflow in Convert.c.
+  [rickprice]
+
+- Fix cve-2022-22817: PIL.ImageMath.eval in Pillow before 9.0.0 allows evaluation of arbitrary
+  expressions, such as ones that use the Python exec method. A lambda expression could also be used,
+  [rickprice]
+
+- Fix cve-2021-27921: Pillow before 8.1.1 allows attackers to cause a denial of service
+  (memory consumption) because the reported size of a contained image is not properly checked for
+  a BLP container, and thus an attempted memory allocation can be very large.
+  [rickprice]
+
+- Fix cve-2021-27923: Pillow before 8.1.1 allows attackers to cause a denial of service (memory
+  consumption) because the reported size of a contained image is not properly checked for a BLP
+  container, and thus an attempted memory allocation can be very large.
+  [rickprice]
+
+- Fix cve-2021-25292: An issue was discovered in Pillow before 8.1.1. The PDF parser allows a
+  regular expression DoS (ReDoS) attack via a crafted PDF file because of a catastrophic
+  backtracking regex.
+  [rickprice]
+
+- Fix cve-2021-27922: Pillow before 8.1.1 allows attackers to cause a denial of service (memory
+  consumption) because the reported size of a contained image is not properly checked for an ICNS
+  container, and thus an attempted memory allocation can be very large.
+  [rickprice]
+
+- Fix cve-2022-24303: Pillow before 9.0.1 allows attackers to delete files because spaces in
+  temporary pathnames are mishandled.
+  [rickprice]
+
+6.2.2.5 (2023-05-01)
 ------------------
 
 - Fix CVE-2020-35654
