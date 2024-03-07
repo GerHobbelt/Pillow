@@ -460,9 +460,10 @@ int ImagingLibTiffDecode(Imaging im, ImagingCodecState state, UINT8* buffer, Py_
         state->bytes = row_byte_size * tile_length;
 
         if (TIFFTileSize(tiff) > state->bytes) {
-            // If the strip size as expected by LibTiff isn't what we're expecting, abort.
+            // If the strip size as expected by LibTiff isn't we're expecting, abort.
             state->errcode = IMAGING_CODEC_MEMORY;
-            goto decode_err;
+            TIFFClose(tiff);
+            return -1;
         }
 
         /* realloc to fit whole tile */
@@ -539,6 +540,55 @@ int ImagingLibTiffDecode(Imaging im, ImagingCodecState state, UINT8* buffer, Py_
         }
         else {
             _decodeStripYCbCr(im, state, tiff);
+        }
+
+        state->bytes = rows_per_strip * row_byte_size;
+
+        TRACE(("StripSize: %d \n", state->bytes));
+
+        if (TIFFStripSize(tiff) > state->bytes) {
+            // If the strip size as expected by LibTiff isn't we're expecting, abort.
+            // man:   TIFFStripSize returns the equivalent size for a strip of data as it would be returned in a
+            //        call to TIFFReadEncodedStrip ...
+
+            state->errcode = IMAGING_CODEC_MEMORY;
+            TIFFClose(tiff);
+            return -1;
+        }
+
+        /* realloc to fit whole strip */
+        /* malloc check above */
+        new_data = realloc (state->buffer, state->bytes);
+        if (!new_data) {
+            state->errcode = IMAGING_CODEC_MEMORY;
+            TIFFClose(tiff);
+            return -1;
+        }
+
+        state->buffer = new_data;
+
+        for (; state->y < state->ysize; state->y += rows_per_strip) {
+            if (ReadStrip(tiff, state->y, (UINT32 *)state->buffer) == -1) {
+                TRACE(("Decode Error, strip %d\n", TIFFComputeStrip(tiff, state->y, 0)));
+                state->errcode = IMAGING_CODEC_BROKEN;
+                TIFFClose(tiff);
+                return -1;
+            }
+
+            TRACE(("Decoded strip for row %d \n", state->y));
+
+            // iterate over each row in the strip and stuff data into image
+            for (strip_row = 0; strip_row < min(rows_per_strip, state->ysize - state->y); strip_row++) {
+                TRACE(("Writing data into line %d ; \n", state->y + strip_row));
+
+                // UINT8 * bbb = state->buffer + strip_row * (state->bytes / rows_per_strip);
+                // TRACE(("chars: %x %x %x %x\n", ((UINT8 *)bbb)[0], ((UINT8 *)bbb)[1], ((UINT8 *)bbb)[2], ((UINT8 *)bbb)[3]));
+
+                state->shuffle((UINT8*) im->image[state->y + state->yoff + strip_row] +
+                               state->xoff * im->pixelsize,
+                               state->buffer + strip_row * row_byte_size,
+                               state->xsize);
+            }
         }
     }
 
