@@ -185,11 +185,8 @@ int ImagingLibTiffInit(ImagingCodecState state, int fp, uint32 offset) {
 }
 
 
-int _decodeStripYCbCr(Imaging im, ImagingCodecState state, TIFF *tiff) {
-    // To avoid dealing with YCbCr subsampling, let libtiff handle it
-    // Use a TIFFRGBAImage wrapping the tiff image, and let libtiff handle
-    // all of the conversion. Metadata read from the TIFFRGBAImage could
-    // be different from the metadata that the base tiff returns. 
+int ReadTile(TIFF* tiff, UINT32 col, UINT32 row, UINT32* buffer) {
+    uint16 photometric = 0;
 
     INT32 strip_row;
     UINT8 *new_data;
@@ -284,11 +281,9 @@ int _decodeStripYCbCr(Imaging im, ImagingCodecState state, TIFF *tiff) {
     return 0;
 }
 
-int _decodeStrip(Imaging im, ImagingCodecState state, TIFF *tiff) {
-    INT32 strip_row;
-    UINT8 *new_data;
-    UINT32 rows_per_strip, row_byte_size;
-    int ret;
+int ReadStrip(TIFF* tiff, UINT32 row, UINT32* buffer) {
+    uint16 photometric = 0; // init to not PHOTOMETRIC_YCBCR
+    TIFFGetField(tiff, TIFFTAG_PHOTOMETRIC, &photometric);
 
     ret = TIFFGetField(tiff, TIFFTAG_ROWSPERSTRIP, &rows_per_strip);
     if (ret != 1) {
