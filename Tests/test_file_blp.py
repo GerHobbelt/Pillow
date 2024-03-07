@@ -37,5 +37,5 @@ class TestFileBlp(PillowTestCase):
 def test_crashes(test_file):
     with open(test_file, "rb") as f:
         with Image.open(f) as im:
-            with pytest.raises(OSError):
+            with pytest.raises(IOError):
                 im.load()
