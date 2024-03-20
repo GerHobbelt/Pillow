@@ -590,6 +590,9 @@ class TestImage(PillowTestCase):
             self.assertFalse(fp.closed)
 
     def test_overrun(self):
+        """ For overrun completeness, test as:
+        valgrind pytest -qq Tests/test_image.py::TestImage::test_overrun | grep decode.c
+        """
         for file in [
             "fli_overrun.bin",
             "sgi_overrun.bin",
@@ -598,6 +601,7 @@ class TestImage(PillowTestCase):
             "pcx_overrun.bin",
             "pcx_overrun2.bin",
             "ossfuzz-4836216264589312.pcx",
+            "01r_00.pcx",
         ]:
             im = Image.open(os.path.join("Tests/images", file))
             try:
