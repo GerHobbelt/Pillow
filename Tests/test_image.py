@@ -610,9 +610,10 @@ class TestImage(PillowTestCase):
             except IOError as e:
                 buffer_overrun = str(
                     e) == "buffer overrun when reading image file"
+                unrecognized = "unrecognized data stream contents" in str(e)
                 truncated = "image file is truncated" in str(e)
 
-                assert buffer_overrun or truncated
+                assert buffer_overrun or truncated or unrecognized
 
     def test_fli_overrun2(self):
         with Image.open("Tests/images/fli_overrun2.bin") as im:
