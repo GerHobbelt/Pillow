@@ -36,6 +36,7 @@ extensions = [
     "sphinx_inline_tabs",
     "sphinx_removed_in",
     "sphinxext.opengraph",
+    "sphinx_reredirects",
 ]
 
 intersphinx_mapping = {"python": ("https://docs.python.org/3", None)}
@@ -326,7 +327,7 @@ linkcheck_allowed_redirects = {
     r"https://gitter.im/python-pillow/Pillow?.*": r"https://app.gitter.im/#/room/#python-pillow_Pillow:gitter.im?.*",
     r"https://pillow.readthedocs.io/?badge=latest": r"https://pillow.readthedocs.io/en/stable/?badge=latest",
     r"https://pillow.readthedocs.io": r"https://pillow.readthedocs.io/en/stable/",
-    r"https://tidelift.com/badges/package/pypi/Pillow?.*": r"https://img.shields.io/badge/.*",
+    r"https://tidelift.com/badges/package/pypi/pillow?.*": r"https://img.shields.io/badge/.*",
     r"https://zenodo.org/badge/17549/python-pillow/Pillow.svg": r"https://zenodo.org/badge/doi/[\.0-9]+/zenodo.[0-9]+.svg",
     r"https://zenodo.org/badge/latestdoi/17549/python-pillow/Pillow": r"https://zenodo.org/record/[0-9]+",
 }
@@ -350,3 +351,6 @@ ogp_image = (
     "pillow-logo-dark-text-1280x640.png"
 )
 ogp_image_alt = "Pillow"
+
+# sphinx-reredirects
+# redirects = {"installation.html": "installation/index.html"}
