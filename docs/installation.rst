@@ -1,6 +1,14 @@
 Installation
 ============
 
+.. raw:: html
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      activateTab(getOS());
+    });
+    </script>
+
 Warnings
 --------
 
@@ -87,11 +95,10 @@ and :pypi:`olefile` for Pillow to read FPX and MIC images::
 
 .. tab:: Windows
 
-    .. warning:: Pillow > 9.5.0 no longer includes 32-bit wheels.
-
-    We provide Pillow binaries for Windows compiled for the matrix of
-    supported Pythons in 64-bit versions in the wheel format. These binaries include
-    support for all optional libraries except libimagequant and libxcb. Raqm support
+    We provide Pillow binaries for Windows compiled for the matrix of supported
+    Pythons in the wheel format. These include x86, x86-64 and arm64 versions
+    (with the exception of Python 3.8 on arm64). These binaries include support
+    for all optional libraries except libimagequant and libxcb. Raqm support
     requires FriBiDi to be installed separately::
 
         python3 -m pip install --upgrade pip
@@ -151,13 +158,13 @@ Many of Pillow's features require external libraries:
 
   * Pillow has been tested with libjpeg versions **6b**, **8**, **9-9d** and
     libjpeg-turbo version **8**.
-  * Starting with Pillow 3.0.0, libjpeg is required by default, but
-    may be disabled with the ``--disable-jpeg`` flag.
+  * Starting with Pillow 3.0.0, libjpeg is required by default. It can be
+    disabled with the ``-C jpeg=disable`` flag.
 
 * **zlib** provides access to compressed PNGs
 
-  * Starting with Pillow 3.0.0, zlib is required by default, but may
-    be disabled with the ``--disable-zlib`` flag.
+  * Starting with Pillow 3.0.0, zlib is required by default. It can be
+    disabled with the ``-C zlib=disable`` flag.
 
 * **libtiff** provides compressed TIFF functionality
 
@@ -168,15 +175,13 @@ Many of Pillow's features require external libraries:
 * **littlecms** provides color management
 
   * Pillow version 2.2.1 and below uses liblcms1, Pillow 2.3.0 and
-    above uses liblcms2. Tested with **1.19** and **2.7-2.15**.
+    above uses liblcms2. Tested with **1.19** and **2.7-2.16**.
 
 * **libwebp** provides the WebP format.
 
   * Pillow has been tested with version **0.1.3**, which does not read
     transparent WebP files. Versions **0.3.0** and above support
     transparency.
-
-* **tcl/tk** provides support for tkinter bitmap and photo images.
 
 * **openjpeg** provides JPEG 2000 functionality.
 
@@ -463,6 +468,8 @@ These platforms are built and tested for every change.
 +----------------------------------+----------------------------+---------------------+
 | Fedora 38                        | 3.11                       | x86-64              |
 +----------------------------------+----------------------------+---------------------+
+| Fedora 39                        | 3.12                       | x86-64              |
++----------------------------------+----------------------------+---------------------+
 | Gentoo                           | 3.9                        | x86-64              |
 +----------------------------------+----------------------------+---------------------+
 | macOS 12 Monterey                | 3.8, 3.9, 3.10, 3.11,      | x86-64              |
@@ -573,6 +580,10 @@ These platforms have been reported to work at the versions mentioned.
 | FreeBSD 10.3                     | 2.7, 3.4, 3.5              | 4.2.0            |x86-64        |
 +----------------------------------+----------------------------+------------------+--------------+
 | FreeBSD 10.2                     | 2.7, 3.4                   | 3.1.0            |x86-64        |
++----------------------------------+----------------------------+------------------+--------------+
+| Windows 11                       | 3.9, 3.10, 3.11, 3.12      | 10.1.0           |arm64         |
++----------------------------------+----------------------------+------------------+--------------+
+| Windows 11 Pro                   | 3.11, 3.12                 | 10.1.0           |x86-64        |
 +----------------------------------+----------------------------+------------------+--------------+
 | Windows 10                       | 3.7                        | 7.1.0            |x86-64        |
 +----------------------------------+----------------------------+------------------+--------------+

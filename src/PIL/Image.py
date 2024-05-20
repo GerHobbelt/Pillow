@@ -40,7 +40,7 @@ from enum import IntEnum
 from pathlib import Path
 
 try:
-    import defusedxml.ElementTree as ElementTree
+    from defusedxml import ElementTree
 except ImportError:
     ElementTree = None
 
@@ -355,10 +355,11 @@ def init():
     if _initialized >= 2:
         return 0
 
+    parent_name = __name__.rpartition(".")[0]
     for plugin in _plugins:
         try:
             logger.debug("Importing %s", plugin)
-            __import__(f"PIL.{plugin}", globals(), locals(), [])
+            __import__(f"{parent_name}.{plugin}", globals(), locals(), [])
         except ImportError as e:
             logger.debug("Image: failed to import %s: %s", plugin, e)
 
@@ -549,16 +550,17 @@ class Image:
         :py:meth:`~PIL.Image.Image.load` method. See :ref:`file-handling` for
         more information.
         """
-        try:
-            if getattr(self, "_fp", False):
-                if self._fp != self.fp:
-                    self._fp.close()
-                self._fp = DeferredError(ValueError("Operation on closed image"))
-            if self.fp:
-                self.fp.close()
-            self.fp = None
-        except Exception as msg:
-            logger.debug("Error closing: %s", msg)
+        if hasattr(self, "fp"):
+            try:
+                if getattr(self, "_fp", False):
+                    if self._fp != self.fp:
+                        self._fp.close()
+                    self._fp = DeferredError(ValueError("Operation on closed image"))
+                if self.fp:
+                    self.fp.close()
+                self.fp = None
+            except Exception as msg:
+                logger.debug("Error closing: %s", msg)
 
         if getattr(self, "map", None):
             self.map = None
@@ -1159,7 +1161,7 @@ class Image:
             if palette.mode != "P":
                 msg = "bad mode for palette image"
                 raise ValueError(msg)
-            if self.mode != "RGB" and self.mode != "L":
+            if self.mode not in {"RGB", "L"}:
                 msg = "only RGB or L mode images can be quantized to a palette"
                 raise ValueError(msg)
             im = self.im.convert("P", dither, palette.im)
@@ -1287,9 +1289,9 @@ class Image:
         if self.im.bands == 1 or multiband:
             return self._new(filter.filter(self.im))
 
-        ims = []
-        for c in range(self.im.bands):
-            ims.append(self._new(filter.filter(self.im.getband(c))))
+        ims = [
+            self._new(filter.filter(self.im.getband(c))) for c in range(self.im.bands)
+        ]
         return merge(self.mode, ims)
 
     def getbands(self):
@@ -1338,10 +1340,7 @@ class Image:
         self.load()
         if self.mode in ("1", "L", "P"):
             h = self.im.histogram()
-            out = []
-            for i in range(256):
-                if h[i]:
-                    out.append((h[i], i))
+            out = [(h[i], i) for i in range(256) if h[i]]
             if len(out) > maxcolors:
                 return None
             return out
@@ -1382,10 +1381,7 @@ class Image:
 
         self.load()
         if self.im.bands > 1:
-            extrema = []
-            for i in range(self.im.bands):
-                extrema.append(self.im.getband(i).getextrema())
-            return tuple(extrema)
+            return tuple(self.im.getband(i).getextrema() for i in range(self.im.bands))
         return self.im.getextrema()
 
     def _getxmp(self, xmp_tags):
@@ -3100,7 +3096,8 @@ def fromarray(obj, mode=None):
         try:
             mode, rawmode = _fromarray_typemap[typekey]
         except KeyError as e:
-            msg = "Cannot handle this data type: %s, %s" % typekey  # noqa: UP031
+            typekey_shape, typestr = typekey
+            msg = f"Cannot handle this data type: {typekey_shape}, {typestr}"
             raise TypeError(msg) from e
     else:
         rawmode = mode

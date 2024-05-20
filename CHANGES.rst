@@ -5,6 +5,51 @@ Changelog (Pillow)
 10.2.0 (unreleased)
 -------------------
 
+- Import plugins relative to the module #7576
+  [deliangyang, jaxx0n]
+
+- Translate encoder error codes to strings; deprecate ``ImageFile.raise_oserror()`` #7609
+  [bgilbert, radarhere]
+
+- Support reading BC4U and DX10 BC1 images #6486
+  [REDxEYE, radarhere, hugovk]
+
+- Optimize ImageStat.Stat.extrema #7593
+  [florath, radarhere]
+
+- Handle pathlib.Path in FreeTypeFont #7578
+  [radarhere, hugovk, nulano]
+
+- Added support for reading DX10 BC4 DDS images #7603
+  [sambvfx, radarhere]
+
+- Optimized ImageStat.Stat.count #7599
+  [florath]
+
+- Correct PDF palette size when saving #7555
+  [radarhere]
+
+- Fixed closing file pointer with olefile 0.47 #7594
+  [radarhere]
+
+- Raise ValueError when TrueType font size is not greater than zero #7584, #7587
+  [akx, radarhere]
+
+- If absent, do not try to close fp when closing image #7557
+  [RaphaelVRossi, radarhere]
+
+- Allow configuring JPEG restart marker interval on save #7488
+  [bgilbert, radarhere]
+
+- Decrement reference count for PyObject #7549
+  [radarhere]
+
+- Implement ``streamtype=1`` option for tables-only JPEG encoding #7491
+  [bgilbert, radarhere]
+
+- If save_all PNG only has one frame, do not create animated image #7522
+  [radarhere]
+
 - Fixed frombytes() for images with a zero dimension #7493
   [radarhere]
 
