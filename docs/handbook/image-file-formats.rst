@@ -266,12 +266,13 @@ following options are available::
     :py:class:`PIL.ImagePalette.ImagePalette` object.
 
 **optimize**
-    Whether to attempt to compress the palette by eliminating unused colors.
+    Whether to attempt to compress the palette by eliminating unused colors
+    (this is only useful if the palette can be compressed to the next smaller
+    power of 2 elements) and whether to mark all pixels that are not new in the
+    next frame as transparent.
+
     This is attempted by default, unless a palette is specified as an option or
     as part of the first image's :py:attr:`~PIL.Image.Image.info` dictionary.
-
-    This is only useful if the palette can be compressed to the next smaller
-    power of 2 elements.
 
 Note that if the image you are saving comes from an existing GIF, it may have
 the following properties in its :py:attr:`~PIL.Image.Image.info` dictionary.
@@ -551,12 +552,13 @@ JPEG 2000
 
 .. versionadded:: 2.4.0
 
-Pillow reads and writes JPEG 2000 files containing ``L``, ``LA``, ``RGB`` or
-``RGBA`` data.  It can also read files containing ``YCbCr`` data, which it
-converts on read into ``RGB`` or ``RGBA`` depending on whether or not there is
-an alpha channel.  Pillow supports JPEG 2000 raw codestreams (``.j2k`` files),
-as well as boxed JPEG 2000 files (``.j2p`` or ``.jpx`` files).  Pillow does
-*not* support files whose components have different sampling frequencies.
+Pillow reads and writes JPEG 2000 files containing ``L``, ``LA``, ``RGB``,
+``RGBA``, or ``YCbCr`` data.  When reading, ``YCbCr`` data is converted to
+``RGB`` or ``RGBA`` depending on whether or not there is an alpha channel.
+Beginning with version 8.3.0, Pillow can read (but not write) ``RGB``,
+``RGBA``, and ``YCbCr`` images with subsampled components.  Pillow supports
+JPEG 2000 raw codestreams (``.j2k`` files), as well as boxed JPEG 2000 files
+(``.jp2`` or ``.jpx`` files).
 
 When loading, if you set the ``mode`` on the image prior to the
 :py:meth:`~PIL.Image.Image.load` method being invoked, you can ask Pillow to

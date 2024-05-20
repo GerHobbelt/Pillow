@@ -31,6 +31,8 @@
 #
 # See the README file for information on usage and redistribution.
 #
+from __future__ import annotations
+
 import array
 import io
 import math
@@ -85,10 +87,12 @@ def APP(self, marker):
                 self.info["dpi"] = jfif_density
             self.info["jfif_unit"] = jfif_unit
             self.info["jfif_density"] = jfif_density
-    elif marker == 0xFFE1 and s[:5] == b"Exif\0":
-        if "exif" not in self.info:
-            # extract EXIF information (incomplete)
-            self.info["exif"] = s  # FIXME: value will change
+    elif marker == 0xFFE1 and s[:6] == b"Exif\0\0":
+        # extract EXIF information
+        if "exif" in self.info:
+            self.info["exif"] += s[6:]
+        else:
+            self.info["exif"] = s
             self._exif_offset = self.fp.tell() - n + 6
     elif marker == 0xFFE2 and s[:5] == b"FPXR\0":
         # extract FlashPix information (incomplete)

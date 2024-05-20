@@ -1,3 +1,4 @@
+from __future__ import annotations
 import sys
 from io import BytesIO, StringIO
 
@@ -8,6 +9,15 @@ from PIL import Image, IptcImagePlugin
 from .helper import hopper
 
 TEST_FILE = "Tests/images/iptc.jpg"
+
+
+def test_open():
+    f = BytesIO(
+        b"\x1c\x03<\x00\x02\x01\x00\x1c\x03x\x00\x01\x01\x1c"
+        b"\x03\x14\x00\x01\x01\x1c\x03\x1e\x00\x01\x01\x1c\x08\n\x00\x00"
+    )
+    with Image.open(f) as im:
+        assert im.tile == [("iptc", (0, 0, 1, 1), 25, "raw")]
 
 
 def test_getiptcinfo_jpg_none():
@@ -77,24 +87,28 @@ def test_i():
     c = b"a"
 
     # Act
-    ret = IptcImagePlugin.i(c)
+    with pytest.warns(DeprecationWarning):
+        ret = IptcImagePlugin.i(c)
 
     # Assert
     assert ret == 97
 
 
-def test_dump():
+def test_dump(monkeypatch):
     # Arrange
     c = b"abc"
     # Temporarily redirect stdout
-    old_stdout = sys.stdout
-    sys.stdout = mystdout = StringIO()
+    mystdout = StringIO()
+    monkeypatch.setattr(sys, "stdout", mystdout)
 
     # Act
-    IptcImagePlugin.dump(c)
-
-    # Reset stdout
-    sys.stdout = old_stdout
+    with pytest.warns(DeprecationWarning):
+        IptcImagePlugin.dump(c)
 
     # Assert
     assert mystdout.getvalue() == "61 62 63 \n"
+
+
+def test_pad_deprecation():
+    with pytest.warns(DeprecationWarning):
+        assert IptcImagePlugin.PAD == b"\0\0\0\0"

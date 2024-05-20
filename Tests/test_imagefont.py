@@ -1,3 +1,4 @@
+from __future__ import annotations
 import copy
 import os
 import re
@@ -866,7 +867,7 @@ def test_bitmap_blend(layout_engine, embedded_color):
 
     im = Image.new("RGBA", (128, 96), "white")
     d = ImageDraw.Draw(im)
-    d.text((16, 16), "AA", font=font, embedded_color=embedded_color, fill="#8E2F52")
+    d.text((16, 16), "AA", font=font, fill="#8E2F52", embedded_color=embedded_color)
 
     assert_image_equal_tofile(im, "Tests/images/bitmap_font_blend.png")
 
@@ -1052,11 +1053,13 @@ def test_too_many_characters(font):
     with pytest.raises(ValueError):
         transposed_font.getlength("A" * 1_000_001)
 
-    default_font = ImageFont.load_default()
+    imagefont = ImageFont.ImageFont()
     with pytest.raises(ValueError):
-        default_font.getlength("A" * 1_000_001)
+        imagefont.getlength("A" * 1_000_001)
     with pytest.raises(ValueError):
-        default_font.getbbox("A" * 1_000_001)
+        imagefont.getbbox("A" * 1_000_001)
+    with pytest.raises(ValueError):
+        imagefont.getmask("A" * 1_000_001)
 
 
 @pytest.mark.parametrize(

@@ -24,6 +24,8 @@
 # See the README file for information on usage and redistribution.
 #
 
+from __future__ import annotations
+
 import atexit
 import builtins
 import io
@@ -477,8 +479,8 @@ class Image:
     * :py:func:`~PIL.Image.frombytes`
     """
 
-    format = None
-    format_description = None
+    format: str | None = None
+    format_description: str | None = None
     _close_exclusive_fp_after_loading = True
 
     def __init__(self):
@@ -528,15 +530,19 @@ class Image:
     def __enter__(self):
         return self
 
+    def _close_fp(self):
+        if getattr(self, "_fp", False):
+            if self._fp != self.fp:
+                self._fp.close()
+            self._fp = DeferredError(ValueError("Operation on closed image"))
+        if self.fp:
+            self.fp.close()
+
     def __exit__(self, *args):
-        if hasattr(self, "fp") and getattr(self, "_exclusive_fp", False):
-            if getattr(self, "_fp", False):
-                if self._fp != self.fp:
-                    self._fp.close()
-                self._fp = DeferredError(ValueError("Operation on closed image"))
-            if self.fp:
-                self.fp.close()
-        self.fp = None
+        if hasattr(self, "fp"):
+            if getattr(self, "_exclusive_fp", False):
+                self._close_fp()
+            self.fp = None
 
     def close(self):
         """
@@ -552,12 +558,7 @@ class Image:
         """
         if hasattr(self, "fp"):
             try:
-                if getattr(self, "_fp", False):
-                    if self._fp != self.fp:
-                        self._fp.close()
-                    self._fp = DeferredError(ValueError("Operation on closed image"))
-                if self.fp:
-                    self.fp.close()
+                self._close_fp()
                 self.fp = None
             except Exception as msg:
                 logger.debug("Error closing: %s", msg)
@@ -1179,7 +1180,7 @@ class Image:
 
         return im
 
-    def copy(self):
+    def copy(self) -> Image:
         """
         Copies this image. Use this method if you wish to paste things
         into an image, but still retain the original.
@@ -1192,7 +1193,7 @@ class Image:
 
     __copy__ = copy
 
-    def crop(self, box=None):
+    def crop(self, box=None) -> Image:
         """
         Returns a rectangular region from this image. The box is a
         4-tuple defining the left, upper, right, and lower pixel
@@ -1657,7 +1658,7 @@ class Image:
             return self.im.entropy(extrema)
         return self.im.entropy()
 
-    def paste(self, im, box=None, mask=None):
+    def paste(self, im, box=None, mask=None) -> None:
         """
         Pastes another image into this image. The box argument is either
         a 2-tuple giving the upper left corner, a 4-tuple defining the
@@ -2350,7 +2351,7 @@ class Image:
             (w, h), Transform.AFFINE, matrix, resample, fillcolor=fillcolor
         )
 
-    def save(self, fp, format=None, **params):
+    def save(self, fp, format=None, **params) -> None:
         """
         Saves this image under the given filename.  If no format is
         specified, the format to use is determined from the filename
@@ -2448,7 +2449,7 @@ class Image:
         if open_fp:
             fp.close()
 
-    def seek(self, frame):
+    def seek(self, frame) -> Image:
         """
         Seeks to the given frame in this sequence file. If you seek
         beyond the end of the sequence, the method raises an
@@ -2535,7 +2536,7 @@ class Image:
 
         return self._new(self.im.getband(channel))
 
-    def tell(self):
+    def tell(self) -> int:
         """
         Returns the current frame number. See :py:meth:`~PIL.Image.Image.seek`.
 
@@ -2901,7 +2902,7 @@ def _check_size(size):
     return True
 
 
-def new(mode, size, color=0):
+def new(mode, size, color=0) -> Image:
     """
     Creates a new image with the given mode and size.
 
@@ -2940,7 +2941,7 @@ def new(mode, size, color=0):
     return im._new(core.fill(mode, size, color))
 
 
-def frombytes(mode, size, data, decoder_name="raw", *args):
+def frombytes(mode, size, data, decoder_name="raw", *args) -> Image:
     """
     Creates a copy of an image memory from pixel data in a buffer.
 
@@ -3189,7 +3190,7 @@ def _decompression_bomb_check(size):
         )
 
 
-def open(fp, mode="r", formats=None):
+def open(fp, mode="r", formats=None) -> Image:
     """
     Opens and identifies the given image file.
 
@@ -3414,7 +3415,7 @@ def merge(mode, bands):
 # Plugin registry
 
 
-def register_open(id, factory, accept=None):
+def register_open(id, factory, accept=None) -> None:
     """
     Register an image file plugin.  This function should not be used
     in application code.
@@ -3468,7 +3469,7 @@ def register_save_all(id, driver):
     SAVE_ALL[id.upper()] = driver
 
 
-def register_extension(id, extension):
+def register_extension(id, extension) -> None:
     """
     Registers an image extension.  This function should not be
     used in application code.
