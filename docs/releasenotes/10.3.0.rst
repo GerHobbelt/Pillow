@@ -4,21 +4,21 @@
 Security
 ========
 
-TODO
-^^^^
+ImageMath eval()
+^^^^^^^^^^^^^^^^
 
-TODO
+.. danger::
+  ``ImageMath.eval()`` uses Python's ``eval()`` function to process the expression
+  string, and carries the security risks of doing so. A direct replacement for this is
+  the new :py:meth:`~PIL.ImageMath.unsafe_eval`, but that carries the same risks. It is
+  not recommended to process expressions without considering this.
+  :py:meth:`~PIL.ImageMath.lambda_eval` is a more secure alternative.
 
-:cve:`YYYY-XXXXX`: TODO
-^^^^^^^^^^^^^^^^^^^^^^^
+:cve:`2024-28219`: Fix buffer overflow in ``_imagingcms.c``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-TODO
-
-Backwards Incompatible Changes
-==============================
-
-TODO
-^^^^
+In ``_imagingcms.c``, two ``strcpy`` calls were able to copy too much data into fixed
+length strings. This has been fixed by using ``strncpy`` instead.
 
 Deprecations
 ============
@@ -57,6 +57,13 @@ Deprecated                                    Use instead
                                               ``feature="littlecms2"``, :py:data:`sys.version` or
                                               :py:data:`sys.version_info`, and ``PIL.__version__``
 ============================================  ====================================================
+
+ImageMath.eval()
+^^^^^^^^^^^^^^^^
+
+``ImageMath.eval()`` has been deprecated. Use :py:meth:`~PIL.ImageMath.lambda_eval` or
+:py:meth:`~PIL.ImageMath.unsafe_eval` instead. See earlier security notes for more
+information.
 
 API Changes
 ===========
@@ -104,3 +111,9 @@ Release GIL when fetching WebP frames
 
 Python's Global Interpreter Lock is now released when fetching WebP frames from
 the libwebp decoder.
+
+Type hints
+^^^^^^^^^^
+
+Pillow now has type hints for a large part of its modules, and the package
+includes a ``py.typed`` file and the ``Typing :: Typed`` Trove classifier.
