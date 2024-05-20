@@ -2,8 +2,35 @@
 Changelog (Pillow)
 ==================
 
-10.2.0 (unreleased)
+10.3.0 (unreleased)
 -------------------
+
+- Fix APNG info after seeking backwards more than twice #7701
+  [esoma, radarhere]
+
+- Deprecate ImageCms constants and versions() function #7702
+  [nulano, radarhere]
+
+- Added PerspectiveTransform #7699
+  [radarhere]
+
+- Add support for reading and writing grayscale PFM images #7696
+  [nulano, hugovk]
+
+- Add LCMS2 flags to ImageCms #7676
+  [nulano, radarhere, hugovk]
+
+- Rename x64 to AMD64 in winbuild #7693
+  [nulano]
+
+10.2.0 (2024-01-02)
+-------------------
+
+- Add ``keep_rgb`` option when saving JPEG to prevent conversion of RGB colorspace #7553
+  [bgilbert, radarhere]
+
+- Trim glyph size in ImageFont.getmask() #7669, #7672
+  [radarhere, nulano]
 
 - Deprecate IptcImagePlugin helpers #7664
   [nulano, hugovk, radarhere]

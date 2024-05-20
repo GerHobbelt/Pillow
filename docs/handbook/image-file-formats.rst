@@ -487,6 +487,16 @@ The :py:meth:`~PIL.Image.Image.save` method supports the following options:
 **exif**
     If present, the image will be stored with the provided raw EXIF data.
 
+**keep_rgb**
+    By default, libjpeg converts images with an RGB color space to YCbCr.
+    If this option is present and true, those images will be stored as RGB
+    instead.
+
+    When this option is enabled, attempting to chroma-subsample RGB images
+    with the ``subsampling`` option will raise an :py:exc:`OSError`.
+
+    .. versionadded:: 10.2.0
+
 **subsampling**
     If present, sets the subsampling for the encoder.
 
@@ -685,6 +695,25 @@ PCX
 ^^^
 
 Pillow reads and writes PCX files containing ``1``, ``L``, ``P``, or ``RGB`` data.
+
+PFM
+^^^
+
+.. versionadded:: 10.3.0
+
+Pillow reads and writes grayscale (Pf format) Portable FloatMap (PFM) files
+containing ``F`` data.
+
+Color (PF format) PFM files are not supported.
+
+Opening
+~~~~~~~
+
+The :py:func:`~PIL.Image.open` function sets the following
+:py:attr:`~PIL.Image.Image.info` properties:
+
+**scale**
+    The absolute value of the number stored in the *Scale Factor / Endianness* line.
 
 PNG
 ^^^

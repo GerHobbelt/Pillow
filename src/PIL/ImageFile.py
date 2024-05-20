@@ -32,7 +32,7 @@ import io
 import itertools
 import struct
 import sys
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 from . import Image
 from ._deprecate import deprecate
@@ -94,7 +94,7 @@ class _Tile(NamedTuple):
     encoder_name: str
     extents: tuple[int, int, int, int]
     offset: int
-    args: tuple | str | None
+    args: tuple[Any, ...] | str | None
 
 
 #
@@ -328,7 +328,7 @@ class ImageFile(Image.Image):
     #     pass
 
     # may be defined for blocked formats (e.g. PNG)
-    # def load_read(self, bytes):
+    # def load_read(self, read_bytes):
     #     pass
 
     def _seek_check(self, frame):

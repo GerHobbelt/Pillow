@@ -15,6 +15,8 @@
 #
 from __future__ import annotations
 
+import math
+
 from . import Image, ImageFile
 from ._binary import i16be as i16
 from ._binary import o8
@@ -35,6 +37,7 @@ MODES = {
     b"P6": "RGB",
     # extensions
     b"P0CMYK": "CMYK",
+    b"Pf": "F",
     # PIL extensions (for test purposes only)
     b"PyP": "P",
     b"PyRGBA": "RGBA",
@@ -43,7 +46,7 @@ MODES = {
 
 
 def _accept(prefix):
-    return prefix[0:1] == b"P" and prefix[1] in b"0123456y"
+    return prefix[0:1] == b"P" and prefix[1] in b"0123456fy"
 
 
 ##
@@ -97,6 +100,7 @@ class PpmImageFile(ImageFile.ImageFile):
         except KeyError:
             msg = "not a PPM file"
             raise SyntaxError(msg)
+        self._mode = mode
 
         if magic_number in (b"P1", b"P4"):
             self.custom_mimetype = "image/x-portable-bitmap"
@@ -105,40 +109,40 @@ class PpmImageFile(ImageFile.ImageFile):
         elif magic_number in (b"P3", b"P6"):
             self.custom_mimetype = "image/x-portable-pixmap"
 
-        maxval = None
+        self._size = int(self._read_token()), int(self._read_token())
+
         decoder_name = "raw"
         if magic_number in (b"P1", b"P2", b"P3"):
             decoder_name = "ppm_plain"
-        for ix in range(3):
-            token = int(self._read_token())
-            if ix == 0:  # token is the x size
-                xsize = token
-            elif ix == 1:  # token is the y size
-                ysize = token
-                if mode == "1":
-                    self._mode = "1"
-                    rawmode = "1;I"
-                    break
-                else:
-                    self._mode = rawmode = mode
-            elif ix == 2:  # token is maxval
-                maxval = token
-                if not 0 < maxval < 65536:
-                    msg = "maxval must be greater than 0 and less than 65536"
-                    raise ValueError(msg)
-                if maxval > 255 and mode == "L":
-                    self._mode = "I"
+        if mode == "1":
+            args = "1;I"
+        elif mode == "F":
+            scale = float(self._read_token())
+            if scale == 0.0 or not math.isfinite(scale):
+                msg = "scale must be finite and non-zero"
+                raise ValueError(msg)
+            self.info["scale"] = abs(scale)
 
-                if decoder_name != "ppm_plain":
-                    # If maxval matches a bit depth, use the raw decoder directly
-                    if maxval == 65535 and mode == "L":
-                        rawmode = "I;16B"
-                    elif maxval != 255:
-                        decoder_name = "ppm"
+            rawmode = "F;32F" if scale < 0 else "F;32BF"
+            args = (rawmode, 0, -1)
+        else:
+            maxval = int(self._read_token())
+            if not 0 < maxval < 65536:
+                msg = "maxval must be greater than 0 and less than 65536"
+                raise ValueError(msg)
+            if maxval > 255 and mode == "L":
+                self._mode = "I"
 
-        args = (rawmode, 0, 1) if decoder_name == "raw" else (rawmode, maxval)
-        self._size = xsize, ysize
-        self.tile = [(decoder_name, (0, 0, xsize, ysize), self.fp.tell(), args)]
+            rawmode = mode
+            if decoder_name != "ppm_plain":
+                # If maxval matches a bit depth, use the raw decoder directly
+                if maxval == 65535 and mode == "L":
+                    rawmode = "I;16B"
+                elif maxval != 255:
+                    decoder_name = "ppm"
+
+            args = rawmode if decoder_name == "raw" else (rawmode, maxval)
+        self.tile = [(decoder_name, (0, 0) + self.size, self.fp.tell(), args)]
 
 
 #
@@ -315,6 +319,8 @@ def _save(im, fp, filename):
         rawmode, head = "I;16B", b"P5"
     elif im.mode in ("RGB", "RGBA"):
         rawmode, head = "RGB", b"P6"
+    elif im.mode == "F":
+        rawmode, head = "F;32F", b"Pf"
     else:
         msg = f"cannot write mode {im.mode} as PPM"
         raise OSError(msg)
@@ -326,7 +332,10 @@ def _save(im, fp, filename):
             fp.write(b"255\n")
         else:
             fp.write(b"65535\n")
-    ImageFile._save(im, fp, [("raw", (0, 0) + im.size, 0, (rawmode, 0, 1))])
+    elif head == b"Pf":
+        fp.write(b"-1.0\n")
+    row_order = -1 if im.mode == "F" else 1
+    ImageFile._save(im, fp, [("raw", (0, 0) + im.size, 0, (rawmode, 0, row_order))])
 
 
 #
@@ -339,6 +348,6 @@ Image.register_save(PpmImageFile.format, _save)
 Image.register_decoder("ppm", PpmDecoder)
 Image.register_decoder("ppm_plain", PpmPlainDecoder)
 
-Image.register_extensions(PpmImageFile.format, [".pbm", ".pgm", ".ppm", ".pnm"])
+Image.register_extensions(PpmImageFile.format, [".pbm", ".pgm", ".ppm", ".pnm", ".pfm"])
 
 Image.register_mime(PpmImageFile.format, "image/x-portable-anymap")

@@ -92,7 +92,7 @@ try:
         raise ImportError(msg)
 
 except ImportError as v:
-    core = DeferredError(ImportError("The _imaging C module is not installed."))
+    core = DeferredError.new(ImportError("The _imaging C module is not installed."))
     # Explanations for ways that we know we might have an import error
     if str(v).startswith("Module use of python"):
         # The _imaging C module is present, but not compiled for
@@ -873,7 +873,7 @@ class Image:
 
     def convert(
         self, mode=None, matrix=None, dither=None, palette=Palette.WEB, colors=256
-    ):
+    ) -> Image:
         """
         Returns a converted copy of this image. For the "P" mode, this
         method translates pixels through the palette.  If mode is
@@ -1305,7 +1305,7 @@ class Image:
         """
         return ImageMode.getmode(self.mode).bands
 
-    def getbbox(self, *, alpha_only=True):
+    def getbbox(self, *, alpha_only: bool = True) -> tuple[int, int, int, int]:
         """
         Calculates the bounding box of the non-zero regions in the
         image.
@@ -2643,7 +2643,7 @@ class Image:
         resample=Resampling.NEAREST,
         fill=1,
         fillcolor=None,
-    ):
+    ) -> Image:
         """
         Transforms this image.  This method creates a new image with the
         given size, and the same mode as the original, and copies data
@@ -2665,6 +2665,10 @@ class Image:
             class Example(Image.ImageTransformHandler):
                 def transform(self, size, data, resample, fill=1):
                     # Return result
+
+          Implementations of :py:class:`~PIL.Image.ImageTransformHandler`
+          for some of the :py:class:`Transform` methods are provided
+          in :py:mod:`~PIL.ImageTransform`.
 
           It may also be an object with a ``method.getdata`` method
           that returns a tuple supplying new ``method`` and ``data`` values::
