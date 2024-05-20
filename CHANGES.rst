@@ -5,6 +5,36 @@ Changelog (Pillow)
 10.3.0 (unreleased)
 -------------------
 
+- Determine MPO size from markers, not EXIF data #7884
+  [radarhere]
+
+- Improved conversion from RGB to RGBa, LA and La #7888
+  [radarhere]
+
+- Support FITS images with GZIP_1 compression #7894
+  [radarhere]
+
+- Use I;16 mode for 9-bit JPEG 2000 images #7900
+  [scaramallion, radarhere]
+
+- Raise ValueError if kmeans is negative #7891
+  [radarhere]
+
+- Remove TIFF tag OSUBFILETYPE when saving using libtiff #7893
+  [radarhere]
+
+- Raise ValueError for negative values when loading P1-P3 PPM images #7882
+  [radarhere]
+
+- Added reading of JPEG2000 palettes #7870
+  [radarhere]
+
+- Added alpha_quality argument when saving WebP images #7872
+  [radarhere]
+
+- Fixed joined corners for ImageDraw rounded_rectangle() non-integer dimensions #7881
+  [radarhere]
+
 - Stop reading EPS image at EOF marker #7753
   [radarhere]
 
