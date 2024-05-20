@@ -1049,6 +1049,7 @@ font_render(FontObject *self, PyObject *args) {
                 int k;
                 unsigned char v;
                 unsigned char *target;
+                unsigned int tmp;
                 if (color) {
                     /* target[RGB] returns the color, target[A] returns the mask */
                     /* target bands get split again in ImageDraw.text */
@@ -1059,34 +1060,58 @@ font_render(FontObject *self, PyObject *args) {
                 if (color && bitmap.pixel_mode == FT_PIXEL_MODE_BGRA) {
                     /* paste color glyph */
                     for (k = x0; k < x1; k++) {
-                        if (target[k * 4 + 3] < source[k * 4 + 3]) {
-                            /* unpremultiply BGRa to RGBA */
-                            target[k * 4 + 0] = CLIP8(
-                                (255 * (int)source[k * 4 + 2]) / source[k * 4 + 3]);
-                            target[k * 4 + 1] = CLIP8(
-                                (255 * (int)source[k * 4 + 1]) / source[k * 4 + 3]);
-                            target[k * 4 + 2] = CLIP8(
-                                (255 * (int)source[k * 4 + 0]) / source[k * 4 + 3]);
-                            target[k * 4 + 3] = source[k * 4 + 3];
+                        int src_alpha = source[k * 4 + 3];
+
+                        /* paste only if source has data */
+                        if (src_alpha > 0) {
+                            /* unpremultiply RGBA */
+                            int src_red = CLIP8((255 * (int)source[k * 4 + 0]) / src_alpha);
+                            int src_grn = CLIP8((255 * (int)source[k * 4 + 1]) / src_alpha);
+                            int src_blu = CLIP8((255 * (int)source[k * 4 + 2]) / src_alpha);
+
+                            /* blend required if target has data */
+                            if (target[k * 4 + 3] > 0) {
+                                /* blend colors to BGRa */
+                                target[k * 4 + 0] = BLEND(src_alpha, target[k * 4 + 0], src_blu, tmp);
+                                target[k * 4 + 1] = BLEND(src_alpha, target[k * 4 + 1], src_grn, tmp);
+                                target[k * 4 + 2] = BLEND(src_alpha, target[k * 4 + 2], src_red, tmp);
+
+                                /* blend alpha */
+                                int out_alpha = CLIP8(src_alpha + MULDIV255(target[k * 4 + 3], (255 - src_alpha), tmp));
+                                target[k * 4 + 3] = out_alpha;
+                            } else {
+                                /* paste unpremultiplied RGBA values */
+                                target[k * 4 + 0] = src_blu;
+                                target[k * 4 + 1] = src_grn;
+                                target[k * 4 + 2] = src_red;
+                                target[k * 4 + 3] = src_alpha;
+                            }
                         }
                     }
                 } else if (bitmap.pixel_mode == FT_PIXEL_MODE_GRAY) {
                     if (color) {
                         unsigned char *ink = (unsigned char *)&foreground_ink;
                         for (k = x0; k < x1; k++) {
-                            v = source[k] * convert_scale;
-                            if (target[k * 4 + 3] < v) {
-                                target[k * 4 + 0] = ink[0];
-                                target[k * 4 + 1] = ink[1];
-                                target[k * 4 + 2] = ink[2];
-                                target[k * 4 + 3] = v;
+                            int src_alpha = source[k] * convert_scale;
+                            if (src_alpha > 0) {
+                                if (target[k * 4 + 3] > 0) {
+                                    target[k * 4 + 0] = BLEND(src_alpha, target[k * 4 + 0], ink[0], tmp);
+                                    target[k * 4 + 1] = BLEND(src_alpha, target[k * 4 + 1], ink[1], tmp);
+                                    target[k * 4 + 2] = BLEND(src_alpha, target[k * 4 + 2], ink[2], tmp);
+                                    target[k * 4 + 3] = CLIP8(src_alpha + MULDIV255(target[k * 4 + 3], (255 - src_alpha), tmp));
+                                } else {
+                                    target[k * 4 + 0] = ink[0];
+                                    target[k * 4 + 1] = ink[1];
+                                    target[k * 4 + 2] = ink[2];
+                                    target[k * 4 + 3] = src_alpha;
+                                }
                             }
                         }
                     } else {
                         for (k = x0; k < x1; k++) {
-                            v = source[k] * convert_scale;
-                            if (target[k] < v) {
-                                target[k] = v;
+                            int src_alpha = source[k] * convert_scale;
+                            if (src_alpha > 0) {
+                                target[k] = target[k] > 0 ? CLIP8(src_alpha + MULDIV255(target[k], (255 - src_alpha), tmp)) : src_alpha;
                             }
                         }
                     }
