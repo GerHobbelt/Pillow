@@ -2,6 +2,34 @@
 Changelog (Pillow)
 ==================
 
+6.2.2.7
+-------
+
+Security
+========
+
+- Fix CVE-2020-10177: Pillow before 7.1.0 has multiple out-of-bounds reads in libImaging/FliDecode.c.
+  [rickprice]
+
+- Fix CVE-2020-35655: 4 Byte Read Overflow in SGIRleDecode.c, where the code was not correctly checking the offsets and length tables. Independently reported through Tidelift and Google's OSS-Fuzz. This vulnerability covers Pillow versions 4.3.0->8.0.1.
+  [rickprice]
+
+- Fix CVE-2021-28678: An issue was discovered in Pillow before 8.2.0. For BLP data, BlpImagePlugin did not properly check that reads (after jumping to file offsets) returned data. This could lead to a DoS where the decoder could be run a large number of times on empty data.
+  [rickprice]
+
+- Fix CVE-2020-10378: In libImaging/PcxDecode.c in Pillow before 7.1.0, an out-of-bounds read can occur when reading PCX files where state-&gt;shuffle is instructed to read beyond state-&gt;buffer.
+  [rickprice]
+
+- Fix CVE-2020-10994: In libImaging/Jpeg2KDecode.c in Pillow before 7.1.0, there are multiple out-of-bounds reads via a crafted JP2 file.
+  [rickprice]
+
+- Fix CVE-2020-35655: In Pillow before 8.1.0, SGIRleDecode has a 4-byte buffer over-read when decoding crafted SGI RLE image files because offsets and length tables are mishandled.
+  [rickprice]
+
+- Fix CVE-2021-25292: An issue was discovered in Pillow before 8.1.1. The PDF parser allows a regular expression DoS (ReDoS) attack via a crafted PDF file because of a catastrophic backtracking regex.
+  [rickprice]
+
+
 6.2.2.6 (2024-03-01)
 ------------------
 
