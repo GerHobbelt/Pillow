@@ -730,8 +730,20 @@ class pil_build_ext(build_ext):
         #
         # additional libraries
 
+        pnglib = "png16"
+        if sys.platform == "win32":
+            pnglib = "libpng16"
+
+        zlib = "z"
+        if sys.platform == "win32":
+            zlib = "zlib"
+
+        sharpyuv = "sharpyuv"
+        if sys.platform == "win32":
+            sharpyuv = "libsharpyuv"
+
         if feature.freetype:
-            libs = ["freetype"]
+            libs = ["freetype", pnglib, "bz2", zlib]
             defs = []
             exts.append(
                 Extension(
@@ -755,7 +767,7 @@ class pil_build_ext(build_ext):
             )
 
         if feature.webp:
-            libs = [feature.webp]
+            libs = [feature.webp, sharpyuv]
             defs = []
 
             if feature.webpmux:
