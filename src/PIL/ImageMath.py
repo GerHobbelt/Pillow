@@ -258,6 +258,12 @@ def eval(expression, _dict={}, **kw):
 
     # build execution namespace
     args = ops.copy()
+
+    for k in list(_dict.keys()) + list(kw.keys()):
+        if "__" in k or hasattr(builtins, k):
+            msg = f"'{k}' not allowed"
+            raise ValueError(msg)
+
     args.update(_dict)
     args.update(kw)
     for k, v in list(args.items()):
