@@ -63,6 +63,14 @@ class TestImageMath(PillowTestCase):
             # ImageMath.eval("exec('pass')")
             ImageMath.eval("string('Python2CompatibleButNotAllowed')")
 
+    def test_prevent_double_underscores(self):
+        with pytest.raises(ValueError):
+            ImageMath.eval("1", {"__": None})
+
+    def test_prevent_builtins(self):
+        with pytest.raises(ValueError):
+            ImageMath.eval("(lambda: exec('exit()'))()", {"exec": None})
+
     def test_logical(self):
         self.assertEqual(pixel(ImageMath.eval("not A", images)), 0)
         self.assertEqual(pixel(ImageMath.eval("A and B", images)), "L 2")

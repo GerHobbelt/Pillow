@@ -25,3 +25,10 @@ This release addresses several critical CVEs.
     crash by having it run out of memory. This occurs for truetype in ImageFont when textlength in
     an ImageDraw instance operates on a long text argument.
 
+Restricted environment keys for ImageMath.eval
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+:cve:`2023-50447`: If an attacker has control over the keys passed to the
+``environment`` argument of :py:meth:`PIL.ImageMath.eval`, they may be able to execute
+arbitrary code. To prevent this, keys matching the names of builtins and keys
+containing double underscores will now raise a :py:exc:`ValueError`.
