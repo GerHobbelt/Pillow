@@ -35,6 +35,8 @@ LAYOUT_BASIC = 0
 LAYOUT_RAQM = 1
 
 
+MAX_STRING_LENGTH = 1000000
+
 class _imagingft_not_installed(object):
     # module placeholder
     def __getattr__(self, id):
@@ -46,6 +48,11 @@ try:
 except ImportError:
     core = _imagingft_not_installed()
 
+
+def _string_length_check(text):
+    if MAX_STRING_LENGTH is not None and len(text) > MAX_STRING_LENGTH:
+        msg = "too many characters in string"
+        raise ValueError(msg)
 
 # FIXME: add support for pilfont2 format (see FontFile.py)
 
@@ -117,6 +124,7 @@ class ImageFont(object):
 
         :return: (width, height)
         """
+        _string_length_check(text)
         return self.font.getsize(text)
 
     def getmask(self, text, mode="", *args, **kwargs):
@@ -251,6 +259,7 @@ class FreeTypeFont(object):
 
         :return: (width, height)
         """
+        _string_length_check(text)
         size, offset = self.font.getsize(text, direction, features, language)
         return (
             size[0] + stroke_width * 2 + offset[0],
@@ -310,6 +319,7 @@ class FreeTypeFont(object):
         lines = self._multiline_split(text)
         line_spacing = self.getsize("A", stroke_width=stroke_width)[1] + spacing
         for line in lines:
+            _string_length_check(line)
             line_width, line_height = self.getsize(
                 line, direction, features, language, stroke_width
             )
@@ -327,6 +337,7 @@ class FreeTypeFont(object):
 
         :return: A tuple of the x and y offset
         """
+        _string_length_check(text)
         return self.font.getsize(text)[1]
 
     def getmask(
@@ -460,6 +471,7 @@ class FreeTypeFont(object):
                  :py:mod:`PIL.Image.core` interface module, and the text offset, the
                  gap between the starting coordinate and the first marking
         """
+        _string_length_check(text)
         size, offset = self.font.getsize(text, direction, features, language)
         size = size[0] + stroke_width * 2, size[1] + stroke_width * 2
         im = fill("L", size, 0)
@@ -559,6 +571,7 @@ class TransposedFont(object):
         self.orientation = orientation  # any 'transpose' argument, or None
 
     def getsize(self, text, *args, **kwargs):
+        _string_length_check(text)
         w, h = self.font.getsize(text)
         if self.orientation in (Image.ROTATE_90, Image.ROTATE_270):
             return h, w

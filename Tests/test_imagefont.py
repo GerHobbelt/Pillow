@@ -184,6 +184,35 @@ class TestImageFont(PillowTestCase):
         # Epsilon ~.5 fails with FreeType 2.7
         self.assert_image_similar(im, target_img, self.metrics["textsize"])
 
+    def test_too_many_characters(self):
+        font = self.get_font()
+
+        # NOTE: The font type doesn't support these operations
+        # with self.assertRaises(ValueError):
+        #     font.getlength("A" * 1000001)
+        # with self.assertRaises(ValueError):
+        #     font.getbbox("A" * 1000001)
+        with self.assertRaises(ValueError):
+            font.getsize("A" * 1000001)
+        with self.assertRaises(ValueError):
+            font.getsize("A" * 1000001,direction=None,features=None, language=None, stroke_width=0)
+        with self.assertRaises(ValueError):
+            font.getsize_multiline("A" * 1000001+"\n" + "A" * 1000001,direction=None, spacing=4, features=None, language=None, stroke_width=0)
+        with self.assertRaises(ValueError):
+            font.getoffset("A" * 1000001)
+        with self.assertRaises(ValueError):
+            font.getmask2("A" * 1000001)
+
+        transposed_font = ImageFont.TransposedFont(font)
+        with self.assertRaises(ValueError):
+            transposed_font.getsize("A" * 1000001)
+
+        default_font = ImageFont.load_default()
+        with self.assertRaises(ValueError):
+            default_font.font.getlength("A" * 1000001)
+        with self.assertRaises(ValueError):
+            default_font.font.getbbox("A" * 1000001)
+
     def test_render_multiline(self):
         im = Image.new(mode="RGB", size=(300, 100))
         draw = ImageDraw.Draw(im)
