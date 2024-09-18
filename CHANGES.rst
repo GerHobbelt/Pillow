@@ -2,6 +2,19 @@
 Changelog (Pillow)
 ==================
 
+6.2.2.8
+-------
+
+Security
+========
+
+- Fix CVE-2023-44271: Fix DOS caused by memory allocation in ImageDraw for carefully crafted TrueTrype fonts.
+  [rickprice]
+
+- Fix CVE-2023-50447: Pillow through 10.1.0 allows PIL.ImageMath.eval Arbitrary Code Execution via the environment parameter
+  [rickprice]
+
+
 6.2.2.7
 -------
 
