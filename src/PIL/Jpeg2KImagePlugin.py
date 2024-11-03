@@ -18,7 +18,7 @@ from __future__ import annotations
 import io
 import os
 import struct
-from typing import IO
+from typing import IO, Tuple, cast
 
 from . import Image, ImageFile, ImagePalette, _binary
 
@@ -59,7 +59,7 @@ class BoxReader:
             self.remaining_in_box -= num_bytes
         return data
 
-    def read_fields(self, field_format):
+    def read_fields(self, field_format: str) -> tuple[int | bytes, ...]:
         size = struct.calcsize(field_format)
         data = self._read_bytes(size)
         return struct.unpack(field_format, data)
@@ -82,9 +82,9 @@ class BoxReader:
         self.remaining_in_box = -1
 
         # Read the length and type of the next box
-        lbox, tbox = self.read_fields(">I4s")
+        lbox, tbox = cast(Tuple[int, bytes], self.read_fields(">I4s"))
         if lbox == 1:
-            lbox = self.read_fields(">Q")[0]
+            lbox = cast(int, self.read_fields(">Q")[0])
             hlen = 16
         else:
             hlen = 8
@@ -97,7 +97,7 @@ class BoxReader:
         return tbox
 
 
-def _parse_codestream(fp):
+def _parse_codestream(fp) -> tuple[tuple[int, int], str]:
     """Parse the JPEG 2000 codestream to extract the size and component
     count from the SIZ marker segment, returning a PIL (size, mode) tuple."""
 
@@ -122,17 +122,19 @@ def _parse_codestream(fp):
     elif csiz == 4:
         mode = "RGBA"
     else:
-        mode = None
+        msg = "unable to determine J2K image mode"
+        raise SyntaxError(msg)
 
     return size, mode
 
 
-def _res_to_dpi(num, denom, exp):
+def _res_to_dpi(num: int, denom: int, exp: int) -> float | None:
     """Convert JPEG2000's (numerator, denominator, exponent-base-10) resolution,
     calculated as (num / denom) * 10^exp and stored in dots per meter,
     to floating-point dots per inch."""
-    if denom != 0:
-        return (254 * num * (10**exp)) / (10000 * denom)
+    if denom == 0:
+        return None
+    return (254 * num * (10**exp)) / (10000 * denom)
 
 
 def _parse_jp2_header(fp):
@@ -235,10 +237,6 @@ class Jpeg2KImageFile(ImageFile.ImageFile):
             else:
                 msg = "not a JPEG 2000 file"
                 raise SyntaxError(msg)
-
-        if self.size is None or self.mode is None:
-            msg = "unable to determine size/mode"
-            raise SyntaxError(msg)
 
         self._reduce = 0
         self.layers = 0
