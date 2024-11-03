@@ -99,7 +99,7 @@ class TestImage:
         im = Image.new("L", (100, 100))
 
         p = Pretty()
-        im._repr_pretty_(p, None)
+        im._repr_pretty_(p, False)
         assert p.pretty_output == "<PIL.Image.Image image mode=L size=100x100>"
 
     def test_open_formats(self) -> None:
@@ -817,7 +817,6 @@ class TestImage:
             assert reloaded_exif[305] == "Pillow test"
 
     @skip_unless_feature("webp")
-    @skip_unless_feature("webp_anim")
     def test_exif_webp(self, tmp_path: Path) -> None:
         with Image.open("Tests/images/hopper.webp") as im:
             exif = im.getexif()
