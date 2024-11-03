@@ -60,7 +60,7 @@ def Skip(self: JpegImageFile, marker: int) -> None:
     ImageFile._safe_read(self.fp, n)
 
 
-def APP(self, marker):
+def APP(self: JpegImageFile, marker: int) -> None:
     #
     # Application marker.  Store these in the APP dictionary.
     # Also look for well-known application markers.
@@ -133,13 +133,14 @@ def APP(self, marker):
                 offset += 4
                 data = s[offset : offset + size]
                 if code == 0x03ED:  # ResolutionInfo
-                    data = {
+                    photoshop[code] = {
                         "XResolution": i32(data, 0) / 65536,
                         "DisplayedUnitsX": i16(data, 4),
                         "YResolution": i32(data, 8) / 65536,
                         "DisplayedUnitsY": i16(data, 12),
                     }
-                photoshop[code] = data
+                else:
+                    photoshop[code] = data
                 offset += size
                 offset += offset & 1  # align
             except struct.error:
@@ -160,38 +161,6 @@ def APP(self, marker):
         # offset is current location minus buffer size
         # plus constant header size
         self.info["mpoffset"] = self.fp.tell() - n + 4
-
-    # If DPI isn't in JPEG header, fetch from EXIF
-    if "dpi" not in self.info and "exif" in self.info:
-        try:
-            exif = self.getexif()
-            resolution_unit = exif[0x0128]
-            x_resolution = exif[0x011A]
-            try:
-                dpi = float(x_resolution[0]) / x_resolution[1]
-            except TypeError:
-                dpi = x_resolution
-            if math.isnan(dpi):
-                msg = "DPI is not a number"
-                raise ValueError(msg)
-            if resolution_unit == 3:  # cm
-                # 1 dpcm = 2.54 dpi
-                dpi *= 2.54
-            self.info["dpi"] = dpi, dpi
-        except (
-            struct.error,
-            KeyError,
-            SyntaxError,
-            TypeError,
-            ValueError,
-            ZeroDivisionError,
-        ):
-            # struct.error for truncated EXIF
-            # KeyError for dpi not included
-            # SyntaxError for invalid/unreadable EXIF
-            # ValueError or TypeError for dpi being an invalid float
-            # ZeroDivisionError for invalid dpi rational value
-            self.info["dpi"] = 72, 72
 
 
 def COM(self: JpegImageFile, marker: int) -> None:
@@ -370,6 +339,7 @@ class JpegImageFile(ImageFile.ImageFile):
 
         # Create attributes
         self.bits = self.layers = 0
+        self._exif_offset = 0
 
         # JPEG specifics (internal)
         self.layer = []
@@ -410,6 +380,8 @@ class JpegImageFile(ImageFile.ImageFile):
             else:
                 msg = "no marker found"
                 raise SyntaxError(msg)
+
+        self._read_dpi_from_exif()
 
     def load_read(self, read_bytes: int) -> bytes:
         """
@@ -499,17 +471,46 @@ class JpegImageFile(ImageFile.ImageFile):
     def _getexif(self) -> dict[str, Any] | None:
         return _getexif(self)
 
-    def _getmp(self):
+    def _read_dpi_from_exif(self) -> None:
+        # If DPI isn't in JPEG header, fetch from EXIF
+        if "dpi" in self.info or "exif" not in self.info:
+            return
+        try:
+            exif = self.getexif()
+            resolution_unit = exif[0x0128]
+            x_resolution = exif[0x011A]
+            try:
+                dpi = float(x_resolution[0]) / x_resolution[1]
+            except TypeError:
+                dpi = x_resolution
+            if math.isnan(dpi):
+                msg = "DPI is not a number"
+                raise ValueError(msg)
+            if resolution_unit == 3:  # cm
+                # 1 dpcm = 2.54 dpi
+                dpi *= 2.54
+            self.info["dpi"] = dpi, dpi
+        except (
+            struct.error,  # truncated EXIF
+            KeyError,  # dpi not included
+            SyntaxError,  # invalid/unreadable EXIF
+            TypeError,  # dpi is an invalid float
+            ValueError,  # dpi is an invalid float
+            ZeroDivisionError,  # invalid dpi rational value
+        ):
+            self.info["dpi"] = 72, 72
+
+    def _getmp(self) -> dict[int, Any] | None:
         return _getmp(self)
 
 
-def _getexif(self) -> dict[str, Any] | None:
+def _getexif(self: JpegImageFile) -> dict[str, Any] | None:
     if "exif" not in self.info:
         return None
     return self.getexif()._get_merged_dict()
 
 
-def _getmp(self):
+def _getmp(self: JpegImageFile) -> dict[int, Any] | None:
     # Extract MP information.  This method was inspired by the "highly
     # experimental" _getexif version that's been in use for years now,
     # itself based on the ImageFileDirectory class in the TIFF plugin.
@@ -617,7 +618,7 @@ samplings = {
 # fmt: on
 
 
-def get_sampling(im):
+def get_sampling(im: Image.Image) -> int:
     # There's no subsampling when images have only 1 layer
     # (grayscale images) or when they are CMYK (4 layers),
     # so set subsampling to the default value.
@@ -625,7 +626,7 @@ def get_sampling(im):
     # NOTE: currently Pillow can't encode JPEG to YCCK format.
     # If YCCK support is added in the future, subsampling code will have
     # to be updated (here and in JpegEncode.c) to deal with 4 layers.
-    if not hasattr(im, "layers") or im.layers in (1, 4):
+    if not isinstance(im, JpegImageFile) or im.layers in (1, 4):
         return -1
     sampling = im.layer[0][1:3] + im.layer[1][1:3] + im.layer[2][1:3]
     return samplings.get(sampling, -1)
@@ -684,7 +685,11 @@ def _save(im: Image.Image, fp: IO[bytes], filename: str | bytes) -> None:
             raise ValueError(msg)
         subsampling = get_sampling(im)
 
-    def validate_qtables(qtables):
+    def validate_qtables(
+        qtables: (
+            str | tuple[list[int], ...] | list[list[int]] | dict[int, list[int]] | None
+        )
+    ) -> list[list[int]] | None:
         if qtables is None:
             return qtables
         if isinstance(qtables, str):
@@ -714,12 +719,12 @@ def _save(im: Image.Image, fp: IO[bytes], filename: str | bytes) -> None:
                     if len(table) != 64:
                         msg = "Invalid quantization table"
                         raise TypeError(msg)
-                    table = array.array("H", table)
+                    table_array = array.array("H", table)
                 except TypeError as e:
                     msg = "Invalid quantization table"
                     raise ValueError(msg) from e
                 else:
-                    qtables[idx] = list(table)
+                    qtables[idx] = list(table_array)
             return qtables
 
     if qtables == "keep":
@@ -826,11 +831,11 @@ def _save_cjpeg(im: Image.Image, fp: IO[bytes], filename: str | bytes) -> None:
 
 ##
 # Factory for making JPEG and MPO instances
-def jpeg_factory(fp=None, filename=None):
+def jpeg_factory(fp: IO[bytes] | None = None, filename: str | bytes | None = None):
     im = JpegImageFile(fp, filename)
     try:
         mpheader = im._getmp()
-        if mpheader[45057] > 1:
+        if mpheader is not None and mpheader[45057] > 1:
             for segment, content in im.applist:
                 if segment == "APP1" and b' hdrgm:Version="' in content:
                     # Ultra HDR images are not yet supported

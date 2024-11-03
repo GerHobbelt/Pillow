@@ -2,8 +2,53 @@
 Changelog (Pillow)
 ==================
 
-10.4.0 (unreleased)
+11.0.0 (unreleased)
 -------------------
+
+- Changed ContainerIO to subclass IO #8240
+  [radarhere]
+
+- Move away from APIs that use borrowed references under the free-threaded build #8216
+  [hugovk, lysnikolaou]
+
+- Allow size argument to resize() to be a NumPy array #8201
+  [radarhere]
+
+- Drop support for Python 3.8 #8183
+  [hugovk, radarhere]
+
+- Add support for Python 3.13 #8181
+  [hugovk, radarhere]
+
+- Fix incompatibility with NumPy 1.20 #8187
+  [neutrinoceros, radarhere]
+
+- Remove PSFile, PyAccess and USE_CFFI_ACCESS #8182
+  [hugovk, radarhere]
+
+10.4.0 (2024-07-01)
+-------------------
+
+- Raise FileNotFoundError if show_file() path does not exist #8178
+  [radarhere]
+
+- Improved reading 16-bit TGA images with colour #7965
+  [Yay295, radarhere]
+
+- Deprecate non-image ImageCms modes #8031
+  [radarhere]
+
+- Fixed processing multiple JPEG EXIF markers #8127
+  [radarhere]
+
+- Do not preserve EXIFIFD tag by default when saving TIFF images #8110
+  [radarhere]
+
+- Added ImageFont.load_default_imagefont() #8086
+  [radarhere]
+
+- Added Image.WARN_POSSIBLE_FORMATS #8063
+  [radarhere]
 
 - Remove zero-byte end padding when parsing any XMP data #8171
   [radarhere]
