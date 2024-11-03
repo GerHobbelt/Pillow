@@ -50,7 +50,7 @@ import warnings
 from collections.abc import MutableMapping
 from fractions import Fraction
 from numbers import Number, Rational
-from typing import TYPE_CHECKING, Any, Callable
+from typing import IO, TYPE_CHECKING, Any, Callable
 
 from . import ExifTags, Image, ImageFile, ImageOps, ImagePalette, TiffTags
 from ._binary import i16be as i16
@@ -387,7 +387,7 @@ class IFDRational(Rational):
     def __hash__(self):
         return self._val.__hash__()
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         val = self._val
         if isinstance(other, IFDRational):
             other = other._val
@@ -1202,7 +1202,7 @@ class TiffImageFile(ImageFile.ImageFile):
         """Return the current frame number"""
         return self.__frame
 
-    def getxmp(self):
+    def getxmp(self) -> dict[str, Any]:
         """
         Returns a dictionary containing the XMP tags.
         Requires defusedxml to be installed.
@@ -1995,7 +1995,7 @@ class AppendingTiffWriter:
         self.finalize()
         self.setup()
 
-    def __enter__(self):
+    def __enter__(self) -> AppendingTiffWriter:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -2023,7 +2023,7 @@ class AppendingTiffWriter:
             self.f.write(bytes(pad_bytes))
         self.offsetOfNewPage = self.f.tell()
 
-    def setEndian(self, endian):
+    def setEndian(self, endian: str) -> None:
         self.endian = endian
         self.longFmt = f"{self.endian}L"
         self.shortFmt = f"{self.endian}H"
@@ -2149,7 +2149,7 @@ class AppendingTiffWriter:
                 self.rewriteLastLong(offset)
 
 
-def _save_all(im, fp, filename):
+def _save_all(im: Image.Image, fp: IO[bytes], filename: str | bytes) -> None:
     encoderinfo = im.encoderinfo.copy()
     encoderconfig = im.encoderconfig
     append_images = list(encoderinfo.get("append_images", []))

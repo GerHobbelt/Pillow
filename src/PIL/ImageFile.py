@@ -28,6 +28,7 @@
 #
 from __future__ import annotations
 
+import abc
 import io
 import itertools
 import struct
@@ -345,6 +346,15 @@ class ImageFile(Image.Image):
             raise EOFError(msg)
 
         return self.tell() != frame
+
+
+class StubHandler:
+    def open(self, im: StubImageFile) -> None:
+        pass
+
+    @abc.abstractmethod
+    def load(self, im: StubImageFile) -> Image.Image:
+        pass
 
 
 class StubImageFile(ImageFile):
@@ -753,7 +763,7 @@ class PyEncoder(PyCodec):
     def pushes_fd(self):
         return self._pushes_fd
 
-    def encode(self, bufsize):
+    def encode(self, bufsize: int) -> tuple[int, int, bytes]:
         """
         Override to perform the encoding process.
 

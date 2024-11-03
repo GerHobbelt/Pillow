@@ -18,6 +18,7 @@ from __future__ import annotations
 import io
 import os
 import struct
+from typing import IO
 
 from . import Image, ImageFile, ImagePalette, _binary
 
@@ -34,7 +35,7 @@ class BoxReader:
         self.length = length
         self.remaining_in_box = -1
 
-    def _can_read(self, num_bytes):
+    def _can_read(self, num_bytes: int) -> bool:
         if self.has_length and self.fp.tell() + num_bytes > self.length:
             # Outside box: ensure we don't read past the known file length
             return False
@@ -44,7 +45,7 @@ class BoxReader:
         else:
             return True  # No length known, just read
 
-    def _read_bytes(self, num_bytes):
+    def _read_bytes(self, num_bytes: int) -> bytes:
         if not self._can_read(num_bytes):
             msg = "Not enough data in header"
             raise SyntaxError(msg)
@@ -74,7 +75,7 @@ class BoxReader:
         else:
             return True
 
-    def next_box_type(self):
+    def next_box_type(self) -> bytes:
         # Skip the rest of the box if it has not been read
         if self.remaining_in_box > 0:
             self.fp.seek(self.remaining_in_box, os.SEEK_CUR)
@@ -328,11 +329,13 @@ def _accept(prefix: bytes) -> bool:
 # Save support
 
 
-def _save(im, fp, filename):
+def _save(im: Image.Image, fp: IO[bytes], filename: str | bytes) -> None:
     # Get the keyword arguments
     info = im.encoderinfo
 
-    if filename.endswith(".j2k") or info.get("no_jp2", False):
+    if isinstance(filename, str):
+        filename = filename.encode()
+    if filename.endswith(b".j2k") or info.get("no_jp2", False):
         kind = "j2k"
     else:
         kind = "jp2"
