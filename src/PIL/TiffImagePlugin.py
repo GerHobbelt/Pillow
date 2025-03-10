@@ -935,8 +935,8 @@ class ImageFileDirectory_v2(_IFDv2Base):
                 self._tagdata[tag] = data
                 self.tagtype[tag] = typ
 
-                bytes_value = size if size > 32 else repr(data)
-                msg += f" - value: <table: {bytes_value} bytes>"
+                msg += " - value: "
+                msg += f"<table: {size} bytes>" if size > 32 else repr(data)
 
                 logger.debug(msg)
 
@@ -981,11 +981,8 @@ class ImageFileDirectory_v2(_IFDv2Base):
 
             tagname = TiffTags.lookup(tag, self.group).name
             typname = "ifd" if is_ifd else TYPES.get(typ, "unknown")
-            bytes_value = len(data) if len(data) >= 16 else str(values)
-            msg = (
-                f"save: {tagname} ({tag}) - type: {typname} ({typ})"
-                f" - value: <table: {bytes_value} bytes>"
-            )
+            msg = f"save: {tagname} ({tag}) - type: {typname} ({typ}) - value: "
+            msg += f"<table: {len(data)} bytes>" if len(data) >= 16 else str(values)
             logger.debug(msg)
 
             # count is sum of lengths for string and arbitrary data
@@ -1435,8 +1432,12 @@ class TiffImageFile(ImageFile.ImageFile):
         logger.debug("- YCbCr subsampling: %s", self.tag_v2.get(YCBCRSUBSAMPLING))
 
         # size
-        xsize = self.tag_v2.get(IMAGEWIDTH)
-        ysize = self.tag_v2.get(IMAGELENGTH)
+        try:
+            xsize = self.tag_v2[IMAGEWIDTH]
+            ysize = self.tag_v2[IMAGELENGTH]
+        except KeyError as e:
+            msg = "Missing dimensions"
+            raise TypeError(msg) from e
         if not isinstance(xsize, int) or not isinstance(ysize, int):
             msg = "Invalid dimensions"
             raise ValueError(msg)
@@ -1558,17 +1559,6 @@ class TiffImageFile(ImageFile.ImageFile):
                 # fillorder==2 modes have a corresponding
                 # fillorder=1 mode
                 self._mode, rawmode = OPEN_INFO[key]
-            # libtiff always returns the bytes in native order.
-            # we're expecting image byte order. So, if the rawmode
-            # contains I;16, we need to convert from native to image
-            # byte order.
-            if rawmode == "I;16":
-                rawmode = "I;16N"
-            if ";16B" in rawmode:
-                rawmode = rawmode.replace(";16B", ";16N")
-            if ";16L" in rawmode:
-                rawmode = rawmode.replace(";16L", ";16N")
-
             # YCbCr images with new jpeg compression with pixels in one plane
             # unpacked straight into RGB values
             if (
@@ -1577,6 +1567,14 @@ class TiffImageFile(ImageFile.ImageFile):
                 and self._planar_configuration == 1
             ):
                 rawmode = "RGB"
+            # libtiff always returns the bytes in native order.
+            # we're expecting image byte order. So, if the rawmode
+            # contains I;16, we need to convert from native to image
+            # byte order.
+            elif rawmode == "I;16":
+                rawmode = "I;16N"
+            elif rawmode.endswith(";16B") or rawmode.endswith(";16L"):
+                rawmode = rawmode[:-1] + "N"
 
             # Offset in the tile tuple is 0, we go from 0,0 to
             # w,h, and we only do this once -- eds
@@ -1917,7 +1915,9 @@ def _save(im: Image.Image, fp: IO[bytes], filename: str | bytes) -> None:
                 if not getattr(Image.core, "libtiff_support_custom_tags", False):
                     continue
 
-                if tag in ifd.tagtype:
+                if tag in TiffTags.TAGS_V2_GROUPS:
+                    types[tag] = TiffTags.LONG8
+                elif tag in ifd.tagtype:
                     types[tag] = ifd.tagtype[tag]
                 elif not (isinstance(value, (int, float, str, bytes))):
                     continue
