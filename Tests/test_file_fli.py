@@ -52,12 +52,12 @@ def test_prefix_chunk(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.mark.skipif(is_pypy(), reason="Requires CPython")
 def test_unclosed_file() -> None:
-    def open() -> None:
+    def open_test_image() -> None:
         im = Image.open(static_test_file)
         im.load()
 
     with pytest.warns(ResourceWarning):
-        open()
+        open_test_image()
 
 
 def test_closed_file() -> None:
@@ -159,6 +159,9 @@ def test_seek() -> None:
         im.seek(50)
 
         assert_image_equal_tofile(im, "Tests/images/a_fli.png")
+
+        with pytest.raises(ValueError, match="cannot seek to frame 52"):
+            im._seek(52)
 
 
 @pytest.mark.parametrize(
