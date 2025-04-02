@@ -142,14 +142,13 @@ function build_libavif {
             -DCMAKE_INSTALL_PREFIX=$BUILD_PREFIX \
             -DCMAKE_INSTALL_LIBDIR=$BUILD_PREFIX/lib \
             -DCMAKE_BUILD_TYPE=Release \
-            -DBUILD_SHARED_LIBS=OFF \
+            -DBUILD_SHARED_LIBS=ON \
             -DAVIF_LIBSHARPYUV=LOCAL \
             -DAVIF_LIBYUV=LOCAL \
             -DAVIF_CODEC_AOM=LOCAL \
             -DCONFIG_AV1_DECODER=0 \
             -DAVIF_CODEC_AOM_DECODE=OFF \
             -DAVIF_CODEC_DAV1D=LOCAL \
-            -DAVIF_CODEC_SVT=LOCAL \
             -DENABLE_NASM=ON \
             -DCMAKE_MODULE_PATH=/tmp/cmake/Modules \
             . \
