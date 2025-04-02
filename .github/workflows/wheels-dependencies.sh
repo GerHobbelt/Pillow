@@ -170,7 +170,7 @@ function build {
     build_simple xcb-proto 1.17.0 https://xorg.freedesktop.org/archive/individual/proto
     if [ -n "$IS_MACOS" ]; then
         build_simple xorgproto 2024.1 https://github.com/python-pillow/pillow-depends/raw/refs/heads/main
-        build_simple libXau 1.0.12 https://github.com/python-pillow/pillow-depends/raw/refs/heads/main
+        build_simple libXau 1.0.11 https://github.com/python-pillow/pillow-depends/raw/refs/heads/main
         build_simple libpthread-stubs 0.5 https://github.com/python-pillow/pillow-depends/raw/refs/heads/main
     else
         sed s/\${pc_sysrootdir\}// $BUILD_PREFIX/share/pkgconfig/xcb-proto.pc > $BUILD_PREFIX/lib/pkgconfig/xcb-proto.pc
