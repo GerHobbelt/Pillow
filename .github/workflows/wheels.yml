@@ -91,6 +91,13 @@ jobs:
           persist-credentials: false
           submodules: true
 
+      - name: Checkout cached dependencies
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          repository: python-pillow/pillow-depends
+          path: winbuild\depends
+    
       - uses: actions/setup-python@v5
         with:
           python-version: "3.x"
