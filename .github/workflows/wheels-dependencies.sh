@@ -107,7 +107,7 @@ function build_harfbuzz {
 
     local out_dir=$(fetch_unpack https://github.com/harfbuzz/harfbuzz/releases/download/$HARFBUZZ_VERSION/harfbuzz-$HARFBUZZ_VERSION.tar.xz harfbuzz-$HARFBUZZ_VERSION.tar.xz)
     (cd $out_dir \
-        && meson setup build --prefix=$BUILD_PREFIX --libdir=$BUILD_PREFIX/lib --buildtype=release -Dfreetype=enabled -Dglib=disabled)
+        && meson setup build --prefix=$BUILD_PREFIX --libdir=$BUILD_PREFIX/lib --buildtype=release -Dfreetype=enabled -Dglib=disabled -Dtests=disabled -Ddocs=disabled -Dutilities=disabled)
     (cd $out_dir/build \
         && meson install)
     touch harfbuzz-stamp
@@ -129,10 +129,10 @@ function build_libavif {
         fi
     fi
 
-    local enable_lto=ON
+    local build_type=MinSizeRel
 
     if [[ -z "$IS_ALPINE" ]] && [[ "$MB_ML_VER" == 2014 ]]; then
-        enable_lto=OFF
+        build_type=Release
     fi
 
     local out_dir=$(fetch_unpack https://github.com/AOMediaCodec/libavif/archive/refs/tags/v$LIBAVIF_VERSION.tar.gz libavif-$LIBAVIF_VERSION.tar.gz)
@@ -152,8 +152,8 @@ function build_libavif {
             -DAVIF_CODEC_AOM_DECODE=OFF \
             -DAVIF_CODEC_DAV1D=LOCAL \
             -DCMAKE_VERBOSE_MAKEFILE=ON \
-            -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$enable_lto \
-            -DCMAKE_BUILD_TYPE=MinSizeRel \
+            -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON \
+            -DCMAKE_BUILD_TYPE=$build_type \
             . \
         && make install)
     touch libavif-stamp
