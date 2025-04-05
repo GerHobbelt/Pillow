@@ -129,6 +129,11 @@ function build_libavif {
         fi
     fi
 
+    local avif_cflags="$CFLAGS"
+
+   if [ -z "$IS_MACOS" ]; then
+        avif_cflags="$avif_cflags -ffunction-sections -fdata-sections -Wl,--gc-sections"
+   fi
     local build_type=MinSizeRel
 
     if [[ -z "$IS_ALPINE" ]] && [[ "$MB_ML_VER" == 2014 ]]; then
@@ -139,7 +144,7 @@ function build_libavif {
     # CONFIG_AV1_DECODER=0 is a flag for libaom (included as a subproject of
     # libavif) to disable the compilation and inclusion of aom's AV1 decoder.
     (cd $out_dir \
-        && CMAKE_POLICY_VERSION_MINIMUM=3.5 cmake \
+        && CMAKE_POLICY_VERSION_MINIMUM=3.5 CFLAGS="$avif_cflags" cmake \
             -DCMAKE_INSTALL_PREFIX=$BUILD_PREFIX \
             -DCMAKE_INSTALL_LIBDIR=$BUILD_PREFIX/lib \
             -DCMAKE_INSTALL_NAME_DIR=$BUILD_PREFIX/lib \
