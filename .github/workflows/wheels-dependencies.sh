@@ -129,15 +129,10 @@ function build_libavif {
         fi
     fi
 
-    local cmake_flags=()
+    local enable_lto=ON
 
     if [[ -z "$IS_ALPINE" ]] && [[ "$MB_ML_VER" == 2014 ]]; then
-        cmake_flags+=(-DCMAKE_BUILD_TYPE=Release)
-    else
-        cmake_flags+=(
-            -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON \
-            -DCMAKE_BUILD_TYPE=MinSizeRel \
-        )
+        enable_lto=OFF
     fi
 
     local out_dir=$(fetch_unpack https://github.com/AOMediaCodec/libavif/archive/refs/tags/v$LIBAVIF_VERSION.tar.gz libavif-$LIBAVIF_VERSION.tar.gz)
@@ -156,7 +151,9 @@ function build_libavif {
             -DCONFIG_AV1_DECODER=0 \
             -DAVIF_CODEC_AOM_DECODE=OFF \
             -DAVIF_CODEC_DAV1D=LOCAL \
-            "${cmake_flags[@]}" \
+            -DCMAKE_VERBOSE_MAKEFILE=ON \
+            -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$enable_lto \
+            -DCMAKE_BUILD_TYPE=MinSizeRel \
             . \
         && make install)
     touch libavif-stamp
