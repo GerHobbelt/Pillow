@@ -124,12 +124,17 @@ function build_libavif {
 
     local build_type=MinSizeRel
     local lto=ON
+    local cmake_flags=()
 
     if [[ "$MB_ML_VER" == 2014 ]]; then
         build_type=Release
     fi
     if [ -n "$IS_MACOS" ]; then
         lto=OFF
+        cmake_flags+=(\
+            -DCMAKE_C_FLAGS_MINSIZEREL_INIT="-Oz -DNDEBUG" \
+            -DCMAKE_CXX_FLAGS_MINSIZEREL_INIT="-Oz -DNDEBUG" \
+            )
     fi
 
     local out_dir=$(fetch_unpack https://github.com/AOMediaCodec/libavif/archive/refs/tags/v$LIBAVIF_VERSION.tar.gz libavif-$LIBAVIF_VERSION.tar.gz)
