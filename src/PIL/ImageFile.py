@@ -34,13 +34,13 @@ import itertools
 import logging
 import os
 import struct
-import sys
-from typing import IO, TYPE_CHECKING, Any, NamedTuple, cast
+from typing import IO, Any, NamedTuple, cast
 
 from . import ExifTags, Image
 from ._deprecate import deprecate
 from ._util import DeferredError, is_path
 
+TYPE_CHECKING = False
 if TYPE_CHECKING:
     from ._typing import StrOrBytesPath
 
@@ -252,8 +252,12 @@ class ImageFile(Image.Image):
             return Image.MIME.get(self.format.upper())
         return None
 
+    def __getstate__(self) -> list[Any]:
+        return super().__getstate__() + [self.filename]
+
     def __setstate__(self, state: list[Any]) -> None:
         self.tile = []
+        self.filename = state[5]
         super().__setstate__(state)
 
     def verify(self) -> None:
@@ -278,8 +282,6 @@ class ImageFile(Image.Image):
 
         self.map: mmap.mmap | None = None
         use_mmap = self.filename and len(self.tile) == 1
-        # As of pypy 2.1.0, memory mapping was failing here.
-        use_mmap = use_mmap and not hasattr(sys, "pypy_version_info")
 
         readonly = 0
 
