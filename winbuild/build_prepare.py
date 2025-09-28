@@ -118,7 +118,7 @@ V = {
     "LCMS2": "2.17",
     "LIBAVIF": "1.3.0",
     "LIBIMAGEQUANT": "4.3.4",
-    "LIBPNG": "1.6.48",
+    "LIBPNG": "1.6.49",
     "LIBWEBP": "1.5.0",
     "OPENJPEG": "2.5.3",
     "TIFF": "4.7.0",
@@ -385,8 +385,8 @@ DEPS: dict[str, dict[str, Any]] = {
         "bins": [r"*.dll"],
     },
     "libavif": {
-        "url": f"https://github.com/AOMediaCodec/libavif/archive/v{V['LIBAVIF']}.zip",
-        "filename": f"libavif-{V['LIBAVIF']}.zip",
+        "url": f"https://github.com/AOMediaCodec/libavif/archive/v{V['LIBAVIF']}.tar.gz",
+        "filename": f"libavif-{V['LIBAVIF']}.tar.gz",
         "license": "LICENSE",
         "build": [
             "rustup update",
