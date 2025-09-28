@@ -12,16 +12,6 @@ Deprecated features
 Below are features which are considered deprecated. Where appropriate,
 a :py:exc:`DeprecationWarning` is issued.
 
-ImageFile.raise_oserror
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. deprecated:: 10.2.0
-
-``ImageFile.raise_oserror()`` has been deprecated and will be removed in Pillow
-12.0.0 (2025-10-15). The function is undocumented and is only useful for translating
-error codes returned by a codec's ``decode()`` method, which ImageFile already does
-automatically.
-
 IptcImageFile helper functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -78,13 +68,6 @@ ImageMath eval()
 ``ImageMath.eval()`` has been deprecated. Use :py:meth:`~PIL.ImageMath.lambda_eval` or
 :py:meth:`~PIL.ImageMath.unsafe_eval` instead.
 
-BGR;15, BGR 16 and BGR;24
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. deprecated:: 10.4.0
-
-The experimental BGR;15, BGR;16 and BGR;24 modes have been deprecated.
-
 Non-image modes in ImageCms
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -130,14 +113,6 @@ ICNS (width, height, scale) sizes
 Setting an ICNS image size to ``(width, height, scale)`` before loading has been
 deprecated. Instead, ``load(scale)`` can be used.
 
-Image isImageType()
-^^^^^^^^^^^^^^^^^^^
-
-.. deprecated:: 11.0.0
-
-``Image.isImageType(im)`` has been deprecated. Use ``isinstance(im, Image.Image)``
-instead.
-
 ImageMath.lambda_eval and ImageMath.unsafe_eval options parameter
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -146,14 +121,6 @@ ImageMath.lambda_eval and ImageMath.unsafe_eval options parameter
 The ``options`` parameter in :py:meth:`~PIL.ImageMath.lambda_eval()` and
 :py:meth:`~PIL.ImageMath.unsafe_eval()` has been deprecated. One or more keyword
 arguments can be used instead.
-
-JpegImageFile.huffman_ac and JpegImageFile.huffman_dc
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. deprecated:: 11.0.0
-
-The ``huffman_ac`` and ``huffman_dc`` dictionaries on JPEG images were unused. They
-have been deprecated, and will be removed in Pillow 12 (2025-10-15).
 
 Specific WebP feature checks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -220,6 +187,42 @@ Removed features
 
 Deprecated features are only removed in major releases after an appropriate
 period of deprecation has passed.
+
+ImageFile.raise_oserror
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. deprecated:: 10.2.0
+.. versionremoved:: 12.0.0
+
+``ImageFile.raise_oserror()`` has been removed. The function was undocumented and was
+only useful for translating error codes returned by a codec's ``decode()`` method,
+which ImageFile already did automatically.
+
+BGR;15, BGR 16 and BGR;24
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. deprecated:: 10.4.0
+.. versionremoved:: 12.0.0
+
+The experimental BGR;15, BGR;16 and BGR;24 modes have been removed.
+
+Image isImageType()
+^^^^^^^^^^^^^^^^^^^
+
+.. deprecated:: 11.0.0
+.. versionremoved:: 12.0.0
+
+``Image.isImageType(im)`` has been removed. Use ``isinstance(im, Image.Image)``
+instead.
+
+JpegImageFile.huffman_ac and JpegImageFile.huffman_dc
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. deprecated:: 11.0.0
+.. versionremoved:: 12.0.0
+
+The ``huffman_ac`` and ``huffman_dc`` dictionaries on JPEG images were unused. They
+have been deprecated, and will be removed in Pillow 12 (2025-10-15).
 
 TiffImagePlugin IFD_LEGACY_API
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
