@@ -42,7 +42,6 @@ class LibTiffTestCase:
 
         # Does the data actually load
         im.load()
-        im.getdata()
 
         assert isinstance(im, TiffImagePlugin.TiffImageFile)
         assert im._compression == "group4"
@@ -610,8 +609,9 @@ class TestFileLibTiff(LibTiffTestCase):
             im.save(out, compression=compression)
 
     def test_fp_leak(self) -> None:
-        im: Image.Image | None = Image.open("Tests/images/hopper_g4_500.tif")
+        im: ImageFile.ImageFile | None = Image.open("Tests/images/hopper_g4_500.tif")
         assert im is not None
+        assert im.fp is not None
         fn = im.fp.fileno()
 
         os.fstat(fn)
