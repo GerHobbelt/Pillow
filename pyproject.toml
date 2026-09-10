@@ -204,3 +204,4 @@ addopts = [ "-ra", "--color=auto" ]
 testpaths = [
   "Tests",
 ]
+markers = ["mem: requires a large amount of memory"]
