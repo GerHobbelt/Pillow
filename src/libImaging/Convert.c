@@ -34,9 +34,6 @@
 
 #include "Imaging.h"
 
-#define MAX(a, b) (a) > (b) ? (a) : (b)
-#define MIN(a, b) (a) < (b) ? (a) : (b)
-
 /* ITU-R Recommendation 601-2 (assuming nonlinear RGB) */
 #define L(rgb) ((INT32)(rgb)[0] * 299 + (INT32)(rgb)[1] * 587 + (INT32)(rgb)[2] * 114)
 #define L24(rgb) ((rgb)[0] * 19595 + (rgb)[1] * 38470 + (rgb)[2] * 7471 + 0x8000)
@@ -1557,6 +1554,13 @@ static struct {
     {IMAGING_MODE_I_16L, IMAGING_MODE_I, I16L_I},
     {IMAGING_MODE_I, IMAGING_MODE_I_16B, I_I16B},
     {IMAGING_MODE_I_16B, IMAGING_MODE_I, I16B_I},
+#ifdef WORDS_BIGENDIAN
+    {IMAGING_MODE_I, IMAGING_MODE_I_16N, I_I16B},
+    {IMAGING_MODE_I_16N, IMAGING_MODE_I, I16B_I},
+#else
+    {IMAGING_MODE_I, IMAGING_MODE_I_16N, I_I16L},
+    {IMAGING_MODE_I_16N, IMAGING_MODE_I, I16L_I},
+#endif
 
     {IMAGING_MODE_L, IMAGING_MODE_I_16L, L_I16L},
     {IMAGING_MODE_I_16L, IMAGING_MODE_L, I16L_L},
@@ -1572,7 +1576,12 @@ static struct {
 
     {IMAGING_MODE_I_16, IMAGING_MODE_F, I16L_F},
     {IMAGING_MODE_I_16L, IMAGING_MODE_F, I16L_F},
-    {IMAGING_MODE_I_16B, IMAGING_MODE_F, I16B_F}
+    {IMAGING_MODE_I_16B, IMAGING_MODE_F, I16B_F},
+#ifdef WORDS_BIGENDIAN
+    {IMAGING_MODE_I_16N, IMAGING_MODE_F, I16B_F}
+#else
+    {IMAGING_MODE_I_16N, IMAGING_MODE_F, I16L_F}
+#endif
 };
 
 /**
@@ -1731,28 +1740,4 @@ ImagingConvertTransparent(Imaging imIn, const ModeID mode, int r, int g, int b) 
     ImagingSectionLeave(&cookie);
 
     return imOut;
-}
-
-Imaging
-ImagingConvertInPlace(Imaging imIn, const ModeID mode) {
-    ImagingSectionCookie cookie;
-    ImagingShuffler convert;
-    int y;
-
-    /* limited support for inplace conversion */
-    if (imIn->mode == IMAGING_MODE_L && mode == IMAGING_MODE_1) {
-        convert = l2bit;
-    } else if (imIn->mode == IMAGING_MODE_1 && mode == IMAGING_MODE_L) {
-        convert = bit2l;
-    } else {
-        return ImagingError_ModeError();
-    }
-
-    ImagingSectionEnter(&cookie);
-    for (y = 0; y < imIn->ysize; y++) {
-        (*convert)((UINT8 *)imIn->image[y], (UINT8 *)imIn->image[y], imIn->xsize);
-    }
-    ImagingSectionLeave(&cookie);
-
-    return imIn;
 }
