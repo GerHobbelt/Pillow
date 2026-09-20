@@ -328,7 +328,6 @@ _new_arrow(PyObject *self, PyObject *args) {
     ModeID mode_id;
     int xsize, ysize;
     PyObject *schema_capsule, *array_capsule;
-    PyObject *ret;
 
     if (!PyArg_ParseTuple(
             args, "s(ii)OO", &mode, &xsize, &ysize, &schema_capsule, &array_capsule
@@ -1115,6 +1114,9 @@ _expand_image(ImagingObject *self, PyObject *args) {
         return NULL;
     }
 
+    if (m == 0) {
+        return PyImagingNew(ImagingCopy(self->image));
+    }
     return PyImagingNew(ImagingExpand(self->image, m));
 }
 

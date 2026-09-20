@@ -33,7 +33,7 @@ pytestmark = skip_unless_feature("jpg_2000")
 
 
 @pytest.fixture
-def card() -> Generator[ImageFile.ImageFile, None, None]:
+def card() -> Generator[ImageFile.ImageFile]:
     with Image.open("Tests/images/test-card.png") as im:
         im.load()
     try:
@@ -226,6 +226,19 @@ def test_header_errors() -> None:
 
     with pytest.raises(OSError):
         with Image.open("Tests/images/expected_to_read.jp2"):
+            pass
+
+
+def test_oversized_box_length() -> None:
+    # A box declaring a 64-bit length that ends beyond the maximum seekable
+    # position must be rejected instead of raising OverflowError from seek()
+    data = (
+        b"\x00\x00\x00\x0cjP  \r\n\x87\n"  # JP2 signature box
+        + struct.pack(">I4s", 1, b"\x00\x00\x00\x00")  # box with 64-bit length
+        + struct.pack(">Q", 0xFFFFFFFFFF000004)  # length beyond the seek range
+    )
+    with pytest.raises(UnidentifiedImageError):
+        with Image.open(BytesIO(data)):
             pass
 
 
