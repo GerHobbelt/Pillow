@@ -6,8 +6,7 @@ import itertools
 import os
 import re
 import sys
-from pathlib import Path
-from typing import Any, NamedTuple
+from typing import NamedTuple
 
 import pytest
 
@@ -31,6 +30,11 @@ from .helper import (
     mark_if_feature_version,
     skip_unless_feature,
 )
+
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from pathlib import Path
+    from typing import Any
 
 
 @skip_unless_feature("libtiff")
@@ -321,7 +325,7 @@ class TestFileLibTiff(LibTiffTestCase):
                         and libtiff
                     ):
                         # libtiff does not support real RATIONALS
-                        assert round(abs(float(reloaded_value) - float(value)), 7) == 0
+                        assert reloaded_value == pytest.approx(value)
                         continue
 
                     assert reloaded_value == value
