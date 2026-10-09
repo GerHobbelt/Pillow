@@ -352,7 +352,8 @@ _decodeTile(
         return -1;
     }
 
-    if (tile_bytes_size > ((tile_length * state->bits / planes + 7) / 8) * tile_width) {
+    if (tile_bytes_size !=
+        ((tile_length * state->bits / planes + 7) / 8) * tile_width) {
         // If the tile size as expected by LibTiff isn't what we're expecting, abort.
         // man:   TIFFTileSize returns the equivalent size for a tile of data as it
         // would be returned in a call to TIFFReadTile ...
@@ -739,13 +740,13 @@ ImagingLibTiffSetField(ImagingCodecState state, ttag_t tag, ...) {
     return status;
 }
 
-int
+void
 ImagingLibTiffEncodeCleanup(ImagingCodecState state) {
     TIFFSTATE *clientstate = (TIFFSTATE *)state->context;
     TIFF *tiff = clientstate->tiff;
 
     if (!tiff) {
-        return 0;
+        return;
     }
     // TIFFClose in libtiff calls tif_closeproc and TIFFCleanup
     if (clientstate->fp) {
@@ -758,7 +759,6 @@ ImagingLibTiffEncodeCleanup(ImagingCodecState state) {
         TIFFClose(tiff);
     }
     clientstate->tiff = NULL;
-    return 0;
 }
 
 int
