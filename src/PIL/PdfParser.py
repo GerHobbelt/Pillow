@@ -502,7 +502,9 @@ class PdfParser:
                     self.pages[j] = new_page_ref
         # delete redundant Pages tree nodes from xref table
         for pages_tree_node_ref in pages_tree_nodes_to_delete:
-            while pages_tree_node_ref:
+            processed_refs = []
+            while pages_tree_node_ref and pages_tree_node_ref not in processed_refs:
+                processed_refs.append(pages_tree_node_ref)
                 pages_tree_node = self.cached_objects[pages_tree_node_ref]
                 if pages_tree_node_ref.object_id in self.xref_table:
                     del self.xref_table[pages_tree_node_ref.object_id]
@@ -837,7 +839,7 @@ class PdfParser:
         data: bytes | bytearray | memoryview | mmap.mmap,
         offset: int,
         expect_indirect: IndirectReference | None = None,
-        max_nesting: int = -1,
+        max_nesting: int = 900,
     ) -> tuple[Any, int | None]:
         if max_nesting == 0:
             return None, None
@@ -1065,7 +1067,7 @@ class PdfParser:
                         self.xref_table[i] = new_entry
         return offset
 
-    def read_indirect(self, ref: IndirectReference, max_nesting: int = -1) -> Any:
+    def read_indirect(self, ref: IndirectReference, max_nesting: int = 900) -> Any:
         offset, generation = self.xref_table[ref[0]]
         check_format_condition(
             generation == ref[1],

@@ -286,8 +286,9 @@ class GifImageFile(ImageFile.ImageFile):
                 x0, y0 = i16(s, 0), i16(s, 2)
                 x1, y1 = x0 + i16(s, 4), y0 + i16(s, 6)
                 if (x1 > self.size[0] or y1 > self.size[1]) and update_image:
-                    self._size = max(x1, self.size[0]), max(y1, self.size[1])
-                    Image._decompression_bomb_check(self._size)
+                    size = max(x1, self.size[0]), max(y1, self.size[1])
+                    Image._decompression_bomb_check(size)
+                    self._size = size
                 frame_dispose_extent = x0, y0, x1, y1
                 flags = s[8]
 
@@ -704,7 +705,10 @@ def _write_multiple_frames(
                 if not bbox:
                     # This frame is identical to the previous frame
                     if encoderinfo.get("duration"):
-                        im_frames[-1].encoderinfo["duration"] += encoderinfo["duration"]
+                        im_frames[-1].encoderinfo["duration"] = (
+                            im_frames[-1].encoderinfo.get("duration", 0)
+                            + encoderinfo["duration"]
+                        )
                     continue
                 if im_frames[-1].encoderinfo.get("disposal") == 2:
                     # To appear correctly in viewers using a convention,
@@ -751,7 +755,7 @@ def _write_multiple_frames(
             im_frames.append(_Frame(diff_frame or im_frame, bbox, encoderinfo))
 
     if len(im_frames) == 1:
-        if "duration" in im.encoderinfo:
+        if "duration" in im_frames[0].encoderinfo:
             # Since multiple frames will not be written, use the combined duration
             im.encoderinfo["duration"] = im_frames[0].encoderinfo["duration"]
         return False
