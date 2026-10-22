@@ -2,6 +2,37 @@
 Changelog (Pillow)
 ==================
 
+6.2.2.post11 (2026-10-22)
+-------------------------
+
+Security
+========
+
+- Fix CVE-2020-35654, CVE-2021-25289, CVE-2021-25290 and CVE-2021-25291 again:
+  TIFF decoder out-of-bounds reads and writes in ``TiffDecode.c``. The fixes listed
+  under 6.2.2.4 to 6.2.2.6 were removed in 6.2.2.7, when ``TiffDecode.c`` was replaced
+  with the Pillow 7.1.0 copy for CVE-2020-10379, so 6.2.2.7 to 6.2.2.10 were affected.
+  The upstream commits are now applied in order on top of the 7.1.0 file, which makes
+  ``TiffDecode.c`` identical to Pillow 8.1.2's. The CVE-2020-10379 checks are kept.
+  [ezequielp-activestate]
+
+- Fix CVE-2022-22817 completely: ``ImageMath.eval()`` now also checks names used inside
+  lambdas (upstream 9.0.1). The 6.2.2.x backport only had the 9.0.0 part, so
+  ``(lambda: __import__('os').getcwd())()`` was still allowed.
+  [ezequielp-activestate]
+
+Fixed
+=====
+
+- ``PIL.ImageMath`` can be imported on Python 2.7 again. The CVE-2023-50447 backport
+  in 6.2.2.8 added an f-string, which is a ``SyntaxError`` on Python 2.7.
+  [ezequielp-activestate]
+
+- Versioning moves from ``+security.N`` to PEP 440 post-releases. ``6.2.2.post11``
+  sorts after ``6.2.2+security.10``.
+  [ezequielp-activestate]
+
+
 6.2.2.10 (2026-05-29)
 ----------------------
 
