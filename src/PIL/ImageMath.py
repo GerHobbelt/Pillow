@@ -261,7 +261,7 @@ def eval(expression, _dict={}, **kw):
 
     for k in list(_dict.keys()) + list(kw.keys()):
         if "__" in k or hasattr(builtins, k):
-            msg = f"'{k}' not allowed"
+            msg = "'%s' not allowed" % k
             raise ValueError(msg)
 
     args.update(_dict)
@@ -270,12 +270,18 @@ def eval(expression, _dict={}, **kw):
         if hasattr(v, "im"):
             args[k] = _Operand(v)
 
-    # out = builtins.eval(expression, args)
-    code = compile(expression, "<string>", "eval")
-    for name in code.co_names:
-        if name not in args and name != "abs":
-            # raise ValueError(f"'{name}' not allowed")
-            raise ValueError("'%s' not allowed"%(name))
+    compiled_code = compile(expression, "<string>", "eval")
+
+    def scan(code):
+        for const in code.co_consts:
+            if type(const) == type(compiled_code):
+                scan(const)
+
+        for name in code.co_names:
+            if name not in args and name != "abs":
+                raise ValueError("'%s' not allowed" % name)
+
+    scan(compiled_code)
 
     out = builtins.eval(expression, {"__builtins": {"abs": abs}}, args)
     try:

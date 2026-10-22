@@ -58,10 +58,15 @@ class TestImageMath(PillowTestCase):
         )
 
     def test_prevent_exec(self):
-        with pytest.raises(ValueError):
-            # Python2 can't handle exec in a compile it seems, so try something else that will fail
-            # ImageMath.eval("exec('pass')")
-            ImageMath.eval("string('Python2CompatibleButNotAllowed')")
+        # exec is a statement on Python 2, so use another disallowed name
+        for expression in (
+            "string('Python2CompatibleButNotAllowed')",
+            "(lambda: string('Python2CompatibleButNotAllowed'))()",
+            "(lambda: (lambda: string('Python2CompatibleButNotAllowed'))())()",
+            "(lambda: __import__('os').getcwd())()",
+        ):
+            with pytest.raises(ValueError):
+                ImageMath.eval(expression)
 
     def test_prevent_double_underscores(self):
         with pytest.raises(ValueError):
@@ -69,7 +74,8 @@ class TestImageMath(PillowTestCase):
 
     def test_prevent_builtins(self):
         with pytest.raises(ValueError):
-            ImageMath.eval("(lambda: exec('exit()'))()", {"exec": None})
+            # exec is a statement on Python 2, so pass another builtin's name
+            ImageMath.eval("(lambda: open('x'))()", {"open": None})
 
     def test_logical(self):
         self.assertEqual(pixel(ImageMath.eval("not A", images)), 0)
