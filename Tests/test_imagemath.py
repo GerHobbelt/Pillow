@@ -69,7 +69,8 @@ class TestImageMath(PillowTestCase):
 
     def test_prevent_builtins(self):
         with pytest.raises(ValueError):
-            ImageMath.eval("(lambda: exec('exit()'))()", {"exec": None})
+            # exec is a statement on Python 2, so pass another builtin's name
+            ImageMath.eval("(lambda: open('x'))()", {"open": None})
 
     def test_logical(self):
         self.assertEqual(pixel(ImageMath.eval("not A", images)), 0)

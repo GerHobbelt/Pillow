@@ -261,7 +261,7 @@ def eval(expression, _dict={}, **kw):
 
     for k in list(_dict.keys()) + list(kw.keys()):
         if "__" in k or hasattr(builtins, k):
-            msg = f"'{k}' not allowed"
+            msg = "'%s' not allowed" % k
             raise ValueError(msg)
 
     args.update(_dict)
