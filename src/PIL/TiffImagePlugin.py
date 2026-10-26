@@ -765,11 +765,12 @@ class ImageFileDirectory_v2(_IFDv2Base):
                 (dest[tag],) = values
             except ValueError:
                 # We've got a builtin tag with 1 expected entry
-                warnings.warn(
-                    f"Metadata Warning, tag {tag} had too many entries: "
-                    f"{len(values)}, expected 1"
-                )
-                dest[tag] = values[0]
+                if tag != PHOTOMETRIC_INTERPRETATION:
+                    warnings.warn(
+                        f"Metadata Warning, tag {tag} had too many entries: "
+                        f"{len(values)}, expected 1"
+                    )
+                    dest[tag] = values[0]
 
         else:
             # Spec'd length > 1 or undefined
@@ -894,6 +895,9 @@ class ImageFileDirectory_v2(_IFDv2Base):
     def load(self, fp: IO[bytes]) -> None:
         self.reset()
         self._offset = fp.tell()
+        fp.seek(0, io.SEEK_END)
+        file_size = fp.tell()
+        fp.seek(self._offset)
 
         try:
             tag_count = (
@@ -901,12 +905,15 @@ class ImageFileDirectory_v2(_IFDv2Base):
                 if self._bigtiff
                 else self._unpack("H", self._ensure_read(fp, 2))
             )[0]
+            total_size = 0
             for i in range(tag_count):
                 tag, typ, count, data = (
                     self._unpack("HHQ8s", self._ensure_read(fp, 20))
                     if self._bigtiff
                     else self._unpack("HHL4s", self._ensure_read(fp, 12))
                 )
+                if tag in self._tagdata:
+                    continue
 
                 tagname = TiffTags.lookup(tag, self.group).name
                 typname = TYPES.get(typ, "unknown")
@@ -924,6 +931,12 @@ class ImageFileDirectory_v2(_IFDv2Base):
                     msg += f" Tag Location: {here} - Data Location: {offset}"
                     if offset >= 2**63:
                         warnings.warn("Tag offset too large")
+                        continue
+                    # Well-formed IFD values should fit within the stream they
+                    # are read from, even before accounting for overlaps.
+                    total_size += size
+                    if total_size > file_size:
+                        warnings.warn(f"Tag data larger than file. Skipping tag {tag}")
                         continue
                     fp.seek(offset)
                     data = ImageFile._safe_read(fp, size)
