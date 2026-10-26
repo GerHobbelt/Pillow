@@ -395,6 +395,121 @@ class TestFileLibTiff(LibTiffTestCase):
         with pytest.raises(ValueError, match="Incorrect tag value type"):
             im.save(out, tiffinfo=ifd)
 
+    @pytest.mark.parametrize(
+        "tiffinfo",
+        (
+            {TiffImagePlugin.IMAGEWIDTH: 1 << 27},
+            {TiffImagePlugin.SAMPLESPERPIXEL: 3},
+        ),
+    )
+    def test_geometry_tags(
+        self, tiffinfo: dict[int, int], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        # libtiff reads a scanline of the size described by the IMAGEWIDTH,
+        # SAMPLESPERPIXEL and BITSPERSAMPLE tags from a buffer that only holds one
+        # row of the image, so a tag describing a larger row must be rejected.
+        monkeypatch.setattr(TiffImagePlugin, "WRITE_LIBTIFF", True)
+
+        out = tmp_path / "temp.tif"
+        im = hopper("L")
+        with pytest.raises(OSError, match="encoder error -8"):
+            im.save(out, tiffinfo=tiffinfo)
+
+    @pytest.mark.parametrize(
+        "tag, value",
+        (
+            # DNGPrivateData is a BYTE array with a count to libtiff
+            (50740, 4096),
+            # ActiveArea is a LONG array of four values to libtiff
+            (50829, 64),
+            (50829, (0, 0)),
+        ),
+    )
+    def test_libtiff_field_definition(
+        self, tag: int, value: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setattr(TiffImagePlugin, "WRITE_LIBTIFF", True)
+
+        ifd = TiffImagePlugin.ImageFileDirectory_v2()
+        ifd[tag] = value
+        ifd.tagtype[tag] = TiffTags.LONG
+
+        out = tmp_path / "temp.tif"
+        im = Image.new("L", (1, 1))
+        with pytest.raises(ValueError, match="libtiff field definition"):
+            im.save(out, tiffinfo=ifd)
+
+        # Values that match the libtiff definition are written
+        ifd = TiffImagePlugin.ImageFileDirectory_v2()
+        ifd[50740] = b"private"
+        ifd.tagtype[50740] = TiffTags.BYTE
+        ifd[50829] = (0, 0, 1, 1)
+        ifd.tagtype[50829] = TiffTags.LONG
+        im.save(out, tiffinfo=ifd)
+
+        with Image.open(out) as reloaded:
+            assert isinstance(reloaded, TiffImagePlugin.TiffImageFile)
+            assert reloaded.tag_v2[50740] == b"private"
+            assert reloaded.tag_v2[50829] == (0, 0, 1, 1)
+
+    def test_transferfunction_not_saved(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        # TransferFunction is not supported by the libtiff encoder, so it is
+        # dropped rather than raising an error
+        monkeypatch.setattr(TiffImagePlugin, "WRITE_LIBTIFF", True)
+
+        out = tmp_path / "temp.tif"
+        im = Image.new("L", (1, 1))
+        im.save(out, tiffinfo={TiffImagePlugin.TRANSFERFUNCTION: tuple(range(256))})
+
+        with Image.open(out) as reloaded:
+            assert isinstance(reloaded, TiffImagePlugin.TiffImageFile)
+            assert TiffImagePlugin.TRANSFERFUNCTION not in reloaded.tag_v2
+
+    @pytest.mark.parametrize(
+        "tag, mode, value, invalid_value",
+        (
+            (320, "L", tuple((i % 256) * 256 for i in range(768)), (0, 0, 0)),
+            (530, "YCbCr", (1, 1), (1,)),
+            (532, "YCbCr", (0, 255, 128, 255, 128, 255), (0, 255)),
+        ),
+    )
+    def test_libtiff_core_field_definition(
+        self,
+        tag: int,
+        mode: str,
+        value: tuple[int, ...],
+        invalid_value: tuple[int, ...],
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        monkeypatch.setattr(TiffImagePlugin, "WRITE_LIBTIFF", True)
+
+        out = tmp_path / "temp.tif"
+        im = Image.new(mode, (1, 1))
+
+        ifd = TiffImagePlugin.ImageFileDirectory_v2()
+        ifd[tag] = invalid_value
+        # The ColorMap length is checked in Python first
+        match = "Requiring 768 items" if tag == 320 else "libtiff field definition"
+        with pytest.raises(ValueError, match=match):
+            im.save(out, tiffinfo=ifd)
+
+        ifd = TiffImagePlugin.ImageFileDirectory_v2()
+        ifd[tag] = value
+
+        im.save(out, tiffinfo=ifd)
+
+        with Image.open(out) as reloaded:
+            assert isinstance(reloaded, TiffImagePlugin.TiffImageFile)
+            if tag == 532:
+                assert tuple(float(v) for v in reloaded.tag_v2[tag]) == pytest.approx(
+                    value
+                )
+            else:
+                assert tuple(reloaded.tag_v2[tag]) == value
+
     def test_inknames_tag(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
@@ -804,6 +919,41 @@ class TestFileLibTiff(LibTiffTestCase):
                 compression="tiff_lzw",
                 tiffinfo={TiffImagePlugin.PREDICTOR: 3},
             )
+
+    def test_save_bytesio_seek_past_end(self, tmp_path: Path) -> None:
+        # When writing the directory, libtiff seeks past the end of the data
+        # written so far, and then writes the tag values there. Check that the
+        # in-memory write buffer grows to fit, and that the bytes that are
+        # skipped over are zero, as they would be when writing to a file.
+
+        # 7 distinct bytes per row: PackBits emits 8 bytes per row, so the strip
+        # plus the header are exactly 64 KiB, the initial size of the buffer
+        im = Image.new("L", (7, 8191))
+        im.putdata([(i * 37) & 0xFF for i in range(7 * 8191)])
+        kwargs: dict[str, Any] = {
+            "compression": "packbits",
+            "description": "D" * 65535,
+        }
+
+        outfile = tmp_path / "temp.tif"
+        im.save(outfile, **kwargs)
+        buffer_io = io.BytesIO()
+        im.save(buffer_io, format="tiff", **kwargs)
+        assert buffer_io.getvalue() == outfile.read_bytes()
+
+        # odd-length tag values, so that libtiff pads between them. Large enough
+        # that the buffer has to be reallocated
+        im = hopper().resize((300, 300))
+        kwargs = {
+            "compression": "tiff_lzw",
+            "description": "abcdef",
+            "software": "xyz0",
+            "tiffinfo": {315: "artist", 33432: "copyright!"},
+        }
+        im.save(outfile, **kwargs)
+        buffer_io = io.BytesIO()
+        im.save(buffer_io, format="tiff", **kwargs)
+        assert buffer_io.getvalue() == outfile.read_bytes()
 
     def test_save_ycbcr(self, tmp_path: Path) -> None:
         im = hopper("YCbCr")
