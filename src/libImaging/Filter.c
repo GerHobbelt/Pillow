@@ -46,6 +46,15 @@ ImagingExpand(Imaging imIn, int xmargin, int ymargin, int mode)
     if (xmargin < 0 && ymargin < 0)
         return (Imaging) ImagingError_ValueError("bad kernel size");
 
+    if (imIn->xsize == 0 || imIn->ysize == 0) {
+        imOut = ImagingNew(
+            imIn->mode, imIn->xsize+2*xmargin, imIn->ysize+2*ymargin);
+        if (!imOut)
+            return NULL;
+        ImagingCopyPalette(imOut, imIn);
+        return imOut;
+    }
+
     imOut = ImagingNewDirty(
         imIn->mode, imIn->xsize+2*xmargin, imIn->ysize+2*ymargin);
     if (!imOut)

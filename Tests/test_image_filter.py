@@ -84,6 +84,17 @@ class TestImageFilter(PillowTestCase):
         self.assertEqual(rankfilter("I"), (0, 4, 8))
         self.assertEqual(rankfilter("F"), (0.0, 4.0, 8.0))
 
+    def test_rankfilter_zero_dimension(self):
+        for filter in (
+            ImageFilter.MinFilter(1),
+            ImageFilter.MedianFilter(1),
+            ImageFilter.MaxFilter(1),
+            ImageFilter.RankFilter(3, 1),
+        ):
+            for size in ((0, 1), (1, 0), (0, 0)):
+                im = Image.new("L", size)
+                self.assertEqual(im.filter(filter).size, size)
+
     def test_rankfilter_properties(self):
         rankfilter = ImageFilter.RankFilter(1, 2)
 
