@@ -1772,6 +1772,7 @@ _resize(ImagingObject* self, PyObject* args)
 {
     Imaging imIn;
     Imaging imOut;
+    Imaging imTemp;
 
     int xsize, ysize;
     int filter = IMAGING_TRANSFORM_NEAREST;
@@ -1815,12 +1816,18 @@ _resize(ImagingObject* self, PyObject* args)
         a[2] = box[0];
         a[5] = box[1];
 
-        imOut = ImagingNewDirty(imIn->mode, xsize, ysize);
+        imTemp = ImagingNewDirty(imIn->mode, xsize, ysize);
+        if (!imTemp)
+            return NULL;
 
         imOut = ImagingTransform(
-            imOut, imIn, IMAGING_TRANSFORM_AFFINE,
+            imTemp, imIn, IMAGING_TRANSFORM_AFFINE,
             0, 0, xsize, ysize,
             a, filter, 1);
+        if (!imOut) {
+            ImagingDelete(imTemp);
+            return NULL;
+        }
     }
     else {
         imOut = ImagingResample(imIn, xsize, ysize, filter, box);
