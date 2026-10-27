@@ -989,3 +989,40 @@ class TestFileLibTiff(LibTiffTestCase):
             self.assertEqual(reloaded.tag_v2[50829], (0, 0, 1, 1))
         finally:
             TiffImagePlugin.WRITE_LIBTIFF = False
+
+    def test_libtiff_ycbcrsubsampling_field_definition(self):
+        # libtiff reads YCbCrSubsampling as two separate values.
+        # 6.2.2 cannot save YCbCr through libtiff, so use RGB.
+        TiffImagePlugin.WRITE_LIBTIFF = True
+        try:
+            out = self.tempfile("temp.tif")
+            im = Image.new("RGB", (1, 1))
+
+            ifd = TiffImagePlugin.ImageFileDirectory_v2()
+            ifd[530] = (1,)
+            with self.assertRaises(ValueError) as e:
+                im.save(out, tiffinfo=ifd)
+            self.assertIn("libtiff field definition", str(e.exception))
+
+            for value in [(1, 1), (2, 2)]:
+                ifd = TiffImagePlugin.ImageFileDirectory_v2()
+                ifd[530] = value
+                im.save(out, tiffinfo=ifd)
+
+                reloaded = Image.open(out)
+                self.assertEqual(reloaded.tag_v2[530], value)
+        finally:
+            TiffImagePlugin.WRITE_LIBTIFF = False
+
+    def test_libtiff_ycbcrsubsampling_resave(self):
+        b = io.BytesIO()
+        Image.new("RGB", (8, 8)).save(b, "TIFF", tiffinfo={530: (2, 2)})
+        b.seek(0)
+        im = Image.open(b)
+
+        out = io.BytesIO()
+        im.save(out, "TIFF", compression="tiff_lzw")
+        out.seek(0)
+
+        reloaded = Image.open(out)
+        self.assertEqual(reloaded.tag_v2[530], (2, 2))

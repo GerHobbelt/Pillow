@@ -689,7 +689,19 @@ static int
 tiff_needs_field_definition(int is_core_tag, int key)
 {
     return !is_core_tag || key == TIFFTAG_TRANSFERFUNCTION ||
-           key == TIFFTAG_COLORMAP || key == TIFFTAG_REFERENCEBLACKWHITE;
+           key == TIFFTAG_COLORMAP || key == TIFFTAG_YCBCRSUBSAMPLING ||
+           key == TIFFTAG_REFERENCEBLACKWHITE;
+}
+
+/* Tags that libtiff reads as separate values rather than as an array */
+static int
+tiff_special_field_matches(int key, TIFFDataType type, int is_var_length,
+                           Py_ssize_t len)
+{
+    if (key == TIFFTAG_YCBCRSUBSAMPLING) {
+        return is_var_length && type == TIFF_SHORT && len == 2;
+    }
+    return 0;
 }
 
 /* Check that a value which will be passed to TIFFSetField as a single value
@@ -890,8 +902,9 @@ PyImaging_LibTiffEncoderNew(PyObject* self, PyObject* args)
             } else if (PyBytes_Check(value)) {
                 len = PyBytes_Size(value);
             }
-            if (!tiff_field_matches(field_type, passcount, writecount,
-                                    type, is_var_length, len)) {
+            if (!(tiff_special_field_matches(key_int, type, is_var_length, len) ||
+                  tiff_field_matches(field_type, passcount, writecount,
+                                     type, is_var_length, len))) {
                 Py_DECREF(encoder);
                 PyErr_SetString(PyExc_ValueError,
                                 "Tag value does not match libtiff field definition");
@@ -904,7 +917,12 @@ PyImaging_LibTiffEncoderNew(PyObject* self, PyObject* args)
             TRACE(("Setting from Tuple: %d \n", key_int));
             len = PyTuple_Size(value);
 
-            if (type == TIFF_BYTE) {
+            if (key_int == TIFFTAG_YCBCRSUBSAMPLING) {
+                status = ImagingLibTiffSetField(&encoder->state,
+                        (ttag_t) key_int,
+                        (UINT16)PyInt_AsLong(PyTuple_GetItem(value, 0)),
+                        (UINT16)PyInt_AsLong(PyTuple_GetItem(value, 1)));
+            } else if (type == TIFF_BYTE) {
                 UINT8 *av;
                 /* malloc check ok, calloc checks for overflow */
                 av = calloc(len, sizeof(UINT8));
