@@ -52,7 +52,10 @@ class TarIO(ContainerIO.ContainerIO):
             if file == name:
                 break
 
-            self.fh.seek((size + 511) & (~511), io.SEEK_CUR)
+            offset = (size + 511) & ~511
+            if offset <= 0:
+                raise ValueError("offset must be positive")
+            self.fh.seek(offset, io.SEEK_CUR)
 
         # Open region
         ContainerIO.ContainerIO.__init__(self, self.fh, self.fh.tell(), size)

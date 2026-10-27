@@ -1,6 +1,8 @@
+import signal
+
 from PIL import Image, TarIO
 
-from .helper import PillowTestCase
+from .helper import PillowTestCase, unittest
 
 codecs = dir(Image.core)
 
@@ -33,3 +35,28 @@ class TestFileTar(PillowTestCase):
     def test_contextmanager(self):
         with TarIO.TarIO(TEST_TAR_FILE, "hopper.jpg"):
             pass
+
+    @unittest.skipUnless(hasattr(signal, "SIGALRM"), "needs SIGALRM")
+    def test_odd(self):
+        with open(TEST_TAR_FILE, "rb") as f:
+            data = bytearray(f.read())
+
+        def timeout(signum, frame):
+            raise AssertionError("timed out")
+
+        for size in (b"-1", b"0", b"-1000"):
+            data[124:135] = size.rjust(11)
+
+            tmpfile = self.tempfile("temp.tar")
+            with open(tmpfile, "wb") as f:
+                f.write(data)
+
+            old_handler = signal.signal(signal.SIGALRM, timeout)
+            signal.alarm(5)
+            try:
+                with self.assertRaises(ValueError) as e:
+                    TarIO.TarIO(tmpfile, "test")
+            finally:
+                signal.alarm(0)
+                signal.signal(signal.SIGALRM, old_handler)
+            self.assertEqual(str(e.exception), "offset must be positive")
