@@ -1,6 +1,7 @@
+import signal
 from io import BytesIO
 
-from PIL import GifImagePlugin, Image, ImageDraw, ImagePalette
+from PIL import GifImagePlugin, Image, ImageDraw, ImagePalette, _binary
 
 from .helper import PillowTestCase, hopper, netpbm_available, unittest
 
@@ -567,6 +568,36 @@ class TestFileGif(PillowTestCase):
         im = Image.open("Tests/images/hopper_zero_comment_subblocks.gif")
         expected = Image.open(TEST_GIF)
         self.assert_image_equal(im, expected)
+
+    @unittest.skipUnless(hasattr(signal, "SIGALRM"), "needs SIGALRM")
+    def test_many_comment_subblocks(self):
+        subblocks = 40000
+        data = (
+            b"GIF89a"
+            + _binary.o16le(1)
+            + _binary.o16le(1)
+            + b"\x00\x00\x00"
+            + b"!\xfe"
+            + (b"\xff" + b"a" * 255) * subblocks
+            + b"\x00"
+            + b","
+            + _binary.o16le(0) * 2
+            + _binary.o16le(1) * 2
+            + b"\x00"
+            + b"\x02\x02\x44\x01\x00;"
+        )
+
+        def timeout(signum, frame):
+            raise AssertionError("timed out")
+
+        old_handler = signal.signal(signal.SIGALRM, timeout)
+        signal.alarm(5)
+        try:
+            im = Image.open(BytesIO(data))
+        finally:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, old_handler)
+        self.assertEqual(im.info["comment"], b"a" * 255 * subblocks)
 
     def test_version(self):
         out = self.tempfile("temp.gif")

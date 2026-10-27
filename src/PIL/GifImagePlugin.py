@@ -174,6 +174,7 @@ class GifImageFile(ImageFile.ImageFile):
         self.palette = copy(self.global_palette)
 
         info = {}
+        comment_blocks = []
         while True:
 
             s = self.fp.read(1)
@@ -209,10 +210,7 @@ class GifImageFile(ImageFile.ImageFile):
                     # comment extension
                     #
                     while block:
-                        if "comment" in info:
-                            info["comment"] += block
-                        else:
-                            info["comment"] = block
+                        comment_blocks.append(block)
                         block = self.data()
                     continue
                 elif i8(s) == 255:
@@ -283,6 +281,8 @@ class GifImageFile(ImageFile.ImageFile):
             # self.__fp = None
             raise EOFError
 
+        if comment_blocks:
+            info["comment"] = b"".join(comment_blocks)
         for k in ["transparency", "duration", "comment", "extension", "loop"]:
             if k in info:
                 self.info[k] = info[k]
