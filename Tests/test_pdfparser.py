@@ -228,3 +228,25 @@ class TestPdfParser(PillowTestCase):
         finally:
             signal.alarm(0)
             signal.signal(signal.SIGALRM, old_handler)
+
+    def test_next_object_id(self):
+        pdf = PdfParser()
+        self.assertEqual(pdf.next_object_id(), IndirectReference(1, 0))
+        pdf.xref_table[5] = (0, 0)
+        pdf.xref_table[3] = (0, 0)
+        self.assertEqual(pdf.next_object_id(), IndirectReference(6, 0))
+        self.assertEqual(pdf.next_object_id(0), IndirectReference(6, 0))
+        self.assertEqual(pdf.next_object_id(), IndirectReference(7, 0))
+
+    @pytest.mark.skipif(not hasattr(signal, "SIGALRM"), reason="needs SIGALRM")
+    def test_next_object_id_many_objects(self):
+        pdf = PdfParser()
+        old_handler = signal.signal(signal.SIGALRM, _raise_timeout)
+        signal.alarm(5)
+        try:
+            for _ in range(20000):
+                pdf.next_object_id(0)
+        finally:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, old_handler)
+        self.assertEqual(pdf.next_object_id(), IndirectReference(20001, 0))
