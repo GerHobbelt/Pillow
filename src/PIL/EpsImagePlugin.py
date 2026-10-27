@@ -85,6 +85,7 @@ def Ghostscript(tile, size, fp, scale=1):
     # orig_size = size
     # orig_bbox = bbox
     size = (size[0] * scale, size[1] * scale)
+    Image._decompression_bomb_check(size)
     # resolution is dependent on bbox and size
     res = (
         float((72.0 * size[0]) / (bbox[2] - bbox[0])),
