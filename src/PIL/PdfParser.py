@@ -685,27 +685,30 @@ class PdfParser:
             self.read_prev_trailer(self.trailer_dict[b"Prev"])
 
     def read_prev_trailer(self, xref_section_offset, processed_offsets=None):
-        # Backport of CVE-2026-42310: detect and break trailer pointer cycles
         if processed_offsets is None:
             processed_offsets = []
-        trailer_offset = self.read_xref_table(xref_section_offset=xref_section_offset)
-        m = self.re_trailer_prev.search(
-            self.buf[trailer_offset : trailer_offset + 16384]
-        )
-        check_format_condition(m, "previous trailer not found")
-        trailer_data = m.group(1)
-        check_format_condition(
-            int(m.group(2)) == xref_section_offset,
-            "xref section offset in previous trailer doesn't match what was expected",
-        )
-        trailer_dict = self.interpret_trailer(trailer_data)
-        if b"Prev" in trailer_dict:
-            processed_offsets.append(xref_section_offset)
+        while True:
             check_format_condition(
-                trailer_dict[b"Prev"] not in processed_offsets,
-                "trailer loop found",
+                xref_section_offset not in processed_offsets, "trailer loop found"
             )
-            self.read_prev_trailer(trailer_dict[b"Prev"], processed_offsets)
+            trailer_offset = self.read_xref_table(
+                xref_section_offset=xref_section_offset
+            )
+            m = self.re_trailer_prev.search(
+                self.buf[trailer_offset : trailer_offset + 16384]
+            )
+            check_format_condition(m, "previous trailer not found")
+            trailer_data = m.group(1)
+            check_format_condition(
+                int(m.group(2)) == xref_section_offset,
+                "xref section offset in previous trailer "
+                "doesn't match what was expected",
+            )
+            trailer_dict = self.interpret_trailer(trailer_data)
+            if b"Prev" not in trailer_dict:
+                break
+            processed_offsets.append(xref_section_offset)
+            xref_section_offset = trailer_dict[b"Prev"]
 
     re_whitespace_optional = re.compile(whitespace_optional)
     re_name = re.compile(
@@ -1038,9 +1041,8 @@ class PdfParser:
         self.cached_objects[ref] = value
         return value
 
-    def linearize_page_tree(self, node=None, processed_ids=None):
-        if processed_ids is None:
-            processed_ids = set()
+    def linearize_page_tree(self, node=None):
+        processed_ids = set()
         if node is not None:
             page_node = node
         else:
@@ -1051,7 +1053,14 @@ class PdfParser:
             page_node[b"Type"] == b"Pages", "/Type of page tree node is not /Pages"
         )
         pages = []
-        for kid in page_node[b"Kids"]:
+        # Walk the tree with a stack of iterators rather than recursion,
+        # so that a deep page tree cannot exhaust the call stack
+        stack = [iter(page_node[b"Kids"])]
+        while stack:
+            kid = next(stack[-1], None)
+            if kid is None:
+                stack.pop()
+                continue
             check_format_condition(
                 kid.object_id not in processed_ids,
                 "page tree contains a cyclic or duplicate reference to %s" % (kid,),
@@ -1061,5 +1070,9 @@ class PdfParser:
             if kid_object[b"Type"] == b"Page":
                 pages.append(kid)
             else:
-                pages.extend(self.linearize_page_tree(kid_object, processed_ids))
+                check_format_condition(
+                    kid_object[b"Type"] == b"Pages",
+                    "/Type of page tree node is not /Pages",
+                )
+                stack.append(iter(kid_object[b"Kids"]))
         return pages

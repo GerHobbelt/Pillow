@@ -250,3 +250,42 @@ class TestPdfParser(PillowTestCase):
             signal.alarm(0)
             signal.signal(signal.SIGALRM, old_handler)
         self.assertEqual(pdf.next_object_id(), IndirectReference(20001, 0))
+
+    def test_linearize_page_tree_deep(self):
+        # A deep, but acyclic, page tree should not exhaust the call stack
+        b = BytesIO()
+        with PdfParser(f=b, mode="wb") as pdf:
+            pdf.start_writing()
+            pdf.write_header()
+
+            pages_ids = [pdf.next_object_id(0) for _ in range(2000)]
+            page_id = pdf.next_object_id(0)
+            pdf.write_page(page_id)
+            for i, pages_id in enumerate(pages_ids):
+                kid = pages_ids[i + 1] if i + 1 < len(pages_ids) else page_id
+                pdf.write_obj(pages_id, Type=PdfName(b"Pages"), Count=1, Kids=[kid])
+
+            pdf.pages = [pages_ids[0]]
+            pdf.write_catalog()
+            pdf.write_xref_and_trailer()
+
+        with PdfParser(f=b) as pdf:
+            self.assertEqual(pdf.pages, [page_id])
+
+    def test_trailer_loop(self):
+        with pytest.raises(PdfFormatError, match="trailer loop found"):
+            PdfParser("Tests/images/trailer_loop.pdf")
+
+    def test_long_trailer_chain(self):
+        b = BytesIO()
+        with PdfParser(f=b, mode="wb") as pdf:
+            pdf.start_writing()
+            pdf.write_header()
+
+            pdf.write_catalog()
+            for _ in range(1000):
+                pdf.write_xref_and_trailer()
+            pdf.write_xref_and_trailer()
+
+        with PdfParser(f=b):
+            pass
