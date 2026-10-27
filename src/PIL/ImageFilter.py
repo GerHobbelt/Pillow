@@ -83,6 +83,8 @@ class RankFilter(Filter):
     name = "Rank"
 
     def __init__(self, size, rank):
+        if size * size * 4 > (2 ** 31 - 1):
+            raise ValueError("filter size too large")
         self.size = size
         self.rank = rank
 
