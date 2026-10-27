@@ -1,4 +1,6 @@
-from PIL import FontFile, Image, ImageDraw, ImageFont, PcfFontFile
+from io import BytesIO
+
+from PIL import FontFile, Image, ImageDraw, ImageFont, PcfFontFile, _binary
 from PIL._util import py3
 
 from .helper import PillowTestCase
@@ -77,3 +79,19 @@ class TestFontPcf(PillowTestCase):
         # accept bytes instances in Py3.
         if py3:
             self._test_high_characters(message.encode("latin1"))
+
+    def test_decompression_bomb(self):
+        with open(fontname, "rb") as fp:
+            data = fp.read()
+        b = BytesIO(
+            data[:900]
+            + _binary.o32le(0)  # jumbo format
+            + _binary.o32le(1)  # number of metrics
+            + _binary.o16le(0)  # left
+            + _binary.o16le(65535)  # right
+            + _binary.o16le(0)  # width
+            + _binary.o16le(0)  # ascent
+            + _binary.o16le(65535)  # descent
+            + _binary.o16le(0)  # attributes
+        )
+        self.assertRaises(Image.DecompressionBombError, PcfFontFile.PcfFontFile, b)
