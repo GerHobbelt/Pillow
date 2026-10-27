@@ -1,4 +1,7 @@
 import time
+from io import BytesIO
+
+import pytest
 
 from PIL.PdfParser import (
     IndirectObjectDef,
@@ -138,3 +141,39 @@ class TestPdfParser(PillowTestCase):
             pdf_repr([123, True, {"a": PdfName(b"b")}]), b"[ 123 true <<\n/a /b\n>> ]"
         )
         self.assertEqual(pdf_repr(PdfBinary(b"\x90\x1F\xA0")), b"<901FA0>")
+
+    def test_linearize_page_tree_duplicate_reference(self):
+        b = BytesIO()
+        with PdfParser(f=b, mode="wb") as pdf:
+            pdf.start_writing()
+            pdf.write_header()
+
+            pages_ids = [pdf.next_object_id(0) for _ in range(2)]
+            pdf.write_obj(
+                pages_ids[0], Type=PdfName(b"Pages"), Count=1, Kids=[pages_ids[1]]
+            )
+            pdf.write_obj(
+                pages_ids[1], Type=PdfName(b"Pages"), Count=1, Kids=[pages_ids[0]]
+            )
+
+            pdf.write_catalog()
+            pdf.write_xref_and_trailer()
+
+        with PdfParser(f=b) as pdf:
+            with pytest.raises(PdfFormatError, match="cyclic or duplicate reference"):
+                pdf.linearize_page_tree(
+                    PdfDict({b"Type": b"Pages", b"Kids": [pages_ids[0]]})
+                )
+
+        b = BytesIO()
+        with PdfParser(f=b, mode="wb") as pdf:
+            pdf.start_writing()
+            pdf.write_header()
+
+            pdf.write_catalog()
+            pdf.write_xref_and_trailer()
+
+        with PdfParser(f=b) as pdf:
+            pdf.page_tree_root[b"Kids"] = [pdf.pages_ref]
+            with pytest.raises(PdfFormatError, match="cyclic or duplicate reference"):
+                pdf.linearize_page_tree()
