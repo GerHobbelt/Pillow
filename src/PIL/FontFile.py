@@ -75,6 +75,7 @@ class FontFile(object):
         self.ysize = h
 
         # paste glyphs into bitmap
+        Image._decompression_bomb_check((xsize, ysize))
         self.bitmap = Image.new("1", (xsize, ysize))
         self.metrics = [None] * 256
         x = y = 0
