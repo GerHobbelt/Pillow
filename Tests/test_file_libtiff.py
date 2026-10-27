@@ -957,3 +957,35 @@ class TestFileLibTiff(LibTiffTestCase):
 
     def test_jpeg_short_tile(self):
         self._jpeg_short_strip(True)
+
+    def test_libtiff_field_definition(self):
+        TiffImagePlugin.WRITE_LIBTIFF = True
+        try:
+            out = self.tempfile("temp.tif")
+            im = Image.new("L", (1, 1))
+            for tag, value, tagtype in [
+                # DNGPrivateData is a BYTE array with a count to libtiff
+                (50740, 4096, TiffTags.LONG),
+                # 6.2.2 passes bytes as a string, without a count
+                (50740, b"private", TiffTags.BYTE),
+                # ActiveArea is a LONG array of four values to libtiff
+                (50829, 64, TiffTags.LONG),
+                (50829, (0, 0), TiffTags.LONG),
+            ]:
+                ifd = TiffImagePlugin.ImageFileDirectory_v2()
+                ifd[tag] = value
+                ifd.tagtype[tag] = tagtype
+                with self.assertRaises(ValueError) as e:
+                    im.save(out, tiffinfo=ifd)
+                self.assertIn("libtiff field definition", str(e.exception))
+
+            # Values that match the libtiff definition are written
+            ifd = TiffImagePlugin.ImageFileDirectory_v2()
+            ifd[50829] = (0, 0, 1, 1)
+            ifd.tagtype[50829] = TiffTags.LONG
+            im.save(out, tiffinfo=ifd)
+
+            reloaded = Image.open(out)
+            self.assertEqual(reloaded.tag_v2[50829], (0, 0, 1, 1))
+        finally:
+            TiffImagePlugin.WRITE_LIBTIFF = False

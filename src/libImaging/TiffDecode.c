@@ -657,6 +657,27 @@ int ImagingLibTiffMergeFieldInfo(ImagingCodecState state, TIFFDataType field_typ
     return status;
 }
 
+int ImagingLibTiffFindField(ImagingCodecState state, int key, TIFFDataType *field_type,
+                            int *passcount, int *writecount){
+    // Look up libtiff's own definition of a tag. TIFFMergeFieldInfo does not
+    // replace the definition of a tag that libtiff already knows, so this is
+    // what TIFFSetField will use for such tags.
+#if TIFFLIB_VERSION >= 20111221 && TIFFLIB_VERSION != 20120218 && TIFFLIB_VERSION != 20120922
+    TIFFSTATE *clientstate = (TIFFSTATE *)state->context;
+    const TIFFField *fip = TIFFFindField(clientstate->tiff, (ttag_t)key, TIFF_ANY);
+
+    if (!fip) {
+        return 0;
+    }
+    *field_type = TIFFFieldDataType(fip);
+    *passcount = TIFFFieldPassCount(fip);
+    *writecount = TIFFFieldWriteCount(fip);
+    return 1;
+#else
+    return 0;
+#endif
+}
+
 int ImagingLibTiffSetField(ImagingCodecState state, ttag_t tag, ...){
     // after tif_dir.c->TIFFSetField.
     TIFFSTATE *clientstate = (TIFFSTATE *)state->context;
