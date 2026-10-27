@@ -809,7 +809,7 @@ class PdfParser:
     )
 
     @classmethod
-    def get_value(cls, data, offset, expect_indirect=None, max_nesting=-1):
+    def get_value(cls, data, offset, expect_indirect=None, max_nesting=900):
         if max_nesting == 0:
             return None, None
         m = cls.re_comment.match(data, offset)
@@ -1021,7 +1021,7 @@ class PdfParser:
                     self.xref_table[i] = new_entry
         return offset
 
-    def read_indirect(self, ref, max_nesting=-1):
+    def read_indirect(self, ref, max_nesting=900):
         offset, generation = self.xref_table[ref[0]]
         check_format_condition(
             generation == ref[1],
