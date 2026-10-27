@@ -197,10 +197,17 @@ _setimage(ImagingDecoderObject* decoder, PyObject* args)
     /* Allocate memory buffer (if bits field is set) */
     if (state->bits > 0) {
         if (!state->bytes) {
-            if (state->xsize > ((INT_MAX / state->bits)-7)){
-                return PyErr_NoMemory();
+            if (state->planes) {
+                if (state->xsize > INT_MAX - 7) {
+                    return PyErr_NoMemory();
+                }
+                state->bytes = state->planes * ((state->xsize + 7) / 8);
+            } else {
+                if (state->xsize > ((INT_MAX / state->bits)-7)){
+                    return PyErr_NoMemory();
+                }
+                state->bytes = (state->bits * state->xsize+7)/8;
             }
-            state->bytes = (state->bits * state->xsize+7)/8;
         }
         /* malloc check ok, overflow checked above */
         state->buffer = (UINT8*) malloc(state->bytes);
@@ -310,6 +317,14 @@ get_unpacker(ImagingDecoderObject* decoder, const char* mode,
 
     decoder->state.shuffle = unpack;
     decoder->state.bits = bits;
+
+    if (strcmp(rawmode, "P;2L") == 0) {
+        decoder->state.planes = 2;
+    } else if (strcmp(rawmode, "P;4L") == 0) {
+        decoder->state.planes = 4;
+    } else {
+        decoder->state.planes = 0;
+    }
 
     return 0;
 }

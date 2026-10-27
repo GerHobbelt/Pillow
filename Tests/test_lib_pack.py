@@ -272,11 +272,10 @@ class TestLibUnpack(PillowTestCase):
     def test_P(self):
         self.assert_unpack("P", "P;1", b"\xe4", 1, 1, 1, 0, 0, 1, 0, 0)
         self.assert_unpack("P", "P;2", b"\xe4", 3, 2, 1, 0)
-        # erroneous?
-        # self.assert_unpack("P", "P;2L", b'\xe4', 1, 1, 1, 0)
+        self.assert_unpack("P", "P;2L", b"\xe4\x0f", 1, 1, 1, 0, 2, 3, 2, 2)
+        self.assert_unpack("P", "P;2L", b"\xe4\x00", 1, 1, 1, 0)
         self.assert_unpack("P", "P;4", b"\x02\xef", 0, 2, 14, 15)
-        # erroneous?
-        # self.assert_unpack("P", "P;4L", b'\x02\xef', 2, 10, 10, 0)
+        self.assert_unpack("P", "P;4L", b"\x02\xef\x00\x00", 2, 2, 2, 0)
         self.assert_unpack("P", "P", 1, 1, 2, 3, 4)
         self.assert_unpack("P", "P;R", 1, 128, 64, 192, 32)
 
@@ -716,3 +715,41 @@ class TestLibUnpack(PillowTestCase):
         self.assertRaises(ValueError, self.assert_unpack, "L", "L", 0, 0)
         self.assertRaises(ValueError, self.assert_unpack, "RGB", "RGB", 2, 0)
         self.assertRaises(ValueError, self.assert_unpack, "CMYK", "CMYK", 2, 0)
+
+    def test_pXl_truncated(self):
+        for size, data_len, rawmode in [
+            ((9, 1), 3, "P;2L"),
+            ((9, 1), 5, "P;4L"),
+            ((8, 1), 1, "P;2L"),
+            ((8, 1), 3, "P;4L"),
+            ((17, 4), 20, "P;2L"),
+            ((17, 8), 72, "P;4L"),
+        ]:
+            data = b"\x00" * data_len
+            with self.assertRaises(ValueError) as e:
+                Image.frombuffer("P", size, data, "raw", rawmode, 0, 1)
+            self.assertIn("not enough image data", str(e.exception))
+
+    def test_pXl_not_truncated(self):
+        for size, data_len, rawmode in [
+            ((8, 1), 2, "P;2L"),
+            ((8, 1), 4, "P;4L"),
+            ((9, 1), 4, "P;2L"),
+            ((9, 1), 8, "P;4L"),
+            ((17, 4), 24, "P;2L"),
+            ((17, 8), 96, "P;4L"),
+        ]:
+            data = b"\x00" * data_len
+            Image.frombuffer("P", size, data, "raw", rawmode, 0, 1)
+
+    def test_pXl_decoder_buffer_size(self):
+        for decoder_name, rawmode, data in [
+            ("hex", "P;2L", b"000000"),  # 3 decoded bytes
+            ("hex", "P;4L", b"0000000000"),  # 5 decoded bytes
+            ("packbits", "P;2L", b"\x02\x00\x00\x00"),  # 3 literal bytes
+            ("packbits", "P;4L", b"\x04\x00\x00\x00\x00\x00"),  # 5 literal bytes
+        ]:
+            im = Image.new("P", (9, 1))
+            with self.assertRaises(ValueError) as e:
+                im.frombytes(data, decoder_name, rawmode)
+            self.assertIn("not enough image data", str(e.exception))
