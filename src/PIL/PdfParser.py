@@ -7,6 +7,7 @@ import re
 import time
 import zlib
 
+from . import ImageFile
 from ._util import py3
 
 try:
@@ -351,17 +352,17 @@ class PdfStream:
         self.dictionary = dictionary
         self.buf = buf
 
-    def decode(self):
+    def decode(self, max_length=ImageFile.SAFEBLOCK):
         try:
             filter = self.dictionary.Filter
         except AttributeError:
             return self.buf
         if filter == b"FlateDecode":
-            try:
-                expected_length = self.dictionary.DL
-            except AttributeError:
-                expected_length = self.dictionary.Length
-            return zlib.decompress(self.buf, bufsize=int(expected_length))
+            dobj = zlib.decompressobj()
+            plaintext = dobj.decompress(self.buf, max_length)
+            if dobj.unconsumed_tail:
+                raise ValueError("Decompressed data too large")
+            return plaintext
         else:
             raise NotImplementedError(
                 "stream filter %s unknown/unsupported" % repr(self.dictionary.Filter)

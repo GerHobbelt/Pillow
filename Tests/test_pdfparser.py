@@ -1,5 +1,6 @@
 import signal
 import time
+import zlib
 from io import BytesIO
 
 import pytest
@@ -132,6 +133,21 @@ class TestPdfParser(PillowTestCase):
         with PdfParser(f=b) as pdf:
             pdf.buf = b" " * 9 + b"1 0 obj" + data + b"endobj"
             pdf.read_indirect(ref)
+
+    def test_pdfstream_flatedecode(self):
+        d = PdfDict({b"Filter": PdfName(b"FlateDecode")})
+        buf = zlib.compress(b"test")
+        s = PdfStream(d, buf)
+        self.assertEqual(s.decode(), b"test")
+
+        with pytest.raises(ValueError, match="Decompressed data too large"):
+            s.decode(3)
+
+    def test_pdfstream_flatedecode_default_limit(self):
+        d = PdfDict({b"Filter": PdfName(b"FlateDecode"), b"Length": 0})
+        s = PdfStream(d, zlib.compress(b"\0" * (2 * 1024 * 1024)))
+        with pytest.raises(ValueError, match="Decompressed data too large"):
+            s.decode()
 
     def test_pdf_repr(self):
         self.assertEqual(bytes(IndirectReference(1, 2)), b"1 2 R")
