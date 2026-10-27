@@ -63,6 +63,9 @@ apply(PyObject *self, PyObject* args)
     imgout = (Imaging) i1;
     width = imgin->xsize;
     height = imgin->ysize;
+    if (!width || !height) {
+        return Py_BuildValue("i", num_changed_pixels);
+    }
 
     if (imgin->type != IMAGING_TYPE_UINT8 ||
         imgin->bands != 1) {
