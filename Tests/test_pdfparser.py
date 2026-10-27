@@ -1,3 +1,4 @@
+import signal
 import time
 from io import BytesIO
 
@@ -18,6 +19,10 @@ from PIL.PdfParser import (
 )
 
 from .helper import PillowTestCase
+
+
+def _raise_timeout(signum, frame):
+    raise AssertionError("timed out")
 
 
 class TestPdfParser(PillowTestCase):
@@ -177,3 +182,29 @@ class TestPdfParser(PillowTestCase):
             pdf.page_tree_root[b"Kids"] = [pdf.pages_ref]
             with pytest.raises(PdfFormatError, match="cyclic or duplicate reference"):
                 pdf.linearize_page_tree()
+
+    @pytest.mark.skipif(not hasattr(signal, "SIGALRM"), reason="needs SIGALRM")
+    def test_write_catalog_loop(self):
+        b = BytesIO()
+        with PdfParser(f=b, mode="wb") as pdf:
+            pdf.start_writing()
+            pdf.write_header()
+
+            page_ids = [pdf.next_object_id(0) for _ in range(2)]
+            pdf.write_page(page_ids[0], Parent=page_ids[1])
+            pdf.write_page(page_ids[1], Parent=page_ids[0])
+
+            pdf.pages = [page_ids[0], page_ids[1]]
+            pdf.write_catalog()
+            pdf.write_xref_and_trailer()
+
+        old_handler = signal.signal(signal.SIGALRM, _raise_timeout)
+        signal.alarm(5)
+        try:
+            with PdfParser(f=b) as pdf:
+                pdf.start_writing()
+                pdf.write_header()
+                pdf.write_catalog()
+        finally:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, old_handler)
