@@ -66,6 +66,7 @@ def bdf_char(f):
     bitmap = b"".join(bitmap)
 
     [x, y, l, d] = [int(p) for p in props["BBX"].split()]
+    Image._decompression_bomb_check((x, y))
     [dx, dy] = [int(p) for p in props["DWIDTH"].split()]
 
     bbox = (dx, dy), (l, -d - y, x + l, -d), (0, 0, x, y)
