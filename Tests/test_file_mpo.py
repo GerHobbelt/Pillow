@@ -131,6 +131,15 @@ class TestFileMpo(PillowTestCase):
             im.seek(0)
             self.assertEqual(im.tell(), 0)
 
+    def test_seek_decompression_bomb(self):
+        with open("Tests/images/frozenpond.mpo", "rb") as fp:
+            data = fp.read()
+        # ExifImageWidth and ExifImageHeight of the second frame
+        data = data[:82746] + b"\x00\x00\xff\xff" + data[82750:]
+        data = data[:82758] + b"\x00\x00\xff\xff" + data[82762:]
+        im = Image.open(BytesIO(data))
+        self.assertRaises(Image.DecompressionBombError, im.seek, 1)
+
     def test_n_frames(self):
         im = Image.open("Tests/images/sugarshack.mpo")
         self.assertEqual(im.n_frames, 2)

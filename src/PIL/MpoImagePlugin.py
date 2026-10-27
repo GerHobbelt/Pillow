@@ -93,6 +93,7 @@ class MpoImageFile(JpegImagePlugin.JpegImageFile):
             exif = self.getexif()
             if 40962 in exif and 40963 in exif:
                 self._size = (exif[40962], exif[40963])
+                Image._decompression_bomb_check(self.size)
         elif "exif" in self.info:
             del self.info["exif"]
 

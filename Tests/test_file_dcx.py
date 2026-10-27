@@ -1,4 +1,7 @@
+from io import BytesIO
+
 from PIL import DcxImagePlugin, Image
+from PIL._binary import o16le as o16, o32le as o32
 
 from .helper import PillowTestCase, hopper
 
@@ -63,3 +66,18 @@ class TestFileDcx(PillowTestCase):
 
         # Act / Assert
         self.assertRaises(EOFError, im.seek, frame)
+
+    def test_seek_decompression_bomb(self):
+        with open("Tests/images/pil184.pcx", "rb") as fp:
+            first_frame = fp.read()
+        second_frame = first_frame[:8] + o16(65535) + o16(65535) + first_frame[12:]
+        b = BytesIO(
+            o32(DcxImagePlugin.MAGIC)
+            + o32(16)
+            + o32(len(first_frame) + 16)
+            + o32(0)
+            + first_frame
+            + second_frame
+        )
+        im = Image.open(b)
+        self.assertRaises(Image.DecompressionBombError, im.seek, 1)
