@@ -914,3 +914,46 @@ class TestFileLibTiff(LibTiffTestCase):
         im.save(buffer_io, format="tiff", **kwargs)
         with open(outfile, "rb") as f:
             self.assertEqual(buffer_io.getvalue(), f.read())
+
+    def _jpeg_short_strip(self, tiled):
+        # The JPEG data in the strip/tile only contains 8 of the 256 rows that
+        # RowsPerStrip/TileLength declare. libtiff decodes the rows that exist
+        # and still reports success, so the remaining rows must be cleared
+        # rather than left as uninitialised memory.
+        jpeg = io.BytesIO()
+        Image.new("L", (256, 8), 200).save(jpeg, "JPEG")
+        jpeg_data = jpeg.getvalue()
+
+        ifd = TiffImagePlugin.ImageFileDirectory_v2()
+        ifd[TiffImagePlugin.IMAGEWIDTH] = 256
+        ifd[TiffImagePlugin.IMAGELENGTH] = 256
+        ifd[TiffImagePlugin.BITSPERSAMPLE] = 8
+        ifd[TiffImagePlugin.COMPRESSION] = 7  # JPEG
+        ifd[TiffImagePlugin.PHOTOMETRIC_INTERPRETATION] = 1  # BlackIsZero
+        if tiled:
+            ifd[322] = 256  # TileWidth
+            ifd[323] = 256  # TileLength
+            ifd[TiffImagePlugin.TILEOFFSETS] = 0
+            ifd[325] = len(jpeg_data)  # TileByteCounts
+            # Point the tile data at the end of the IFD
+            ifd[TiffImagePlugin.TILEOFFSETS] = 8 + len(ifd.tobytes(8))
+        else:
+            ifd[TiffImagePlugin.ROWSPERSTRIP] = 256
+            # Strip offsets is updated by tobytes()
+            ifd[TiffImagePlugin.STRIPOFFSETS] = 0
+            ifd[TiffImagePlugin.STRIPBYTECOUNTS] = len(jpeg_data)
+
+        b = io.BytesIO()
+        ifd.save(b)
+        b.write(jpeg_data)
+
+        im = Image.open(b)
+        self.assertEqual(im.tile[0][0], "libtiff")
+        self.assertEqual(im.crop((0, 0, 256, 8)).getextrema(), (200, 200))
+        self.assertEqual(im.crop((0, 8, 256, 256)).getextrema(), (0, 0))
+
+    def test_jpeg_short_strip(self):
+        self._jpeg_short_strip(False)
+
+    def test_jpeg_short_tile(self):
+        self._jpeg_short_strip(True)

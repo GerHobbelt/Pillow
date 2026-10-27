@@ -332,6 +332,7 @@ int _decodeStrip(Imaging im, ImagingCodecState state, TIFF *tiff) {
     }
 
     state->buffer = new_data;
+    memset(state->buffer, 0, state->bytes);
 
     for (; state->y < state->ysize; state->y += rows_per_strip) {
         if (TIFFReadEncodedStrip(tiff, TIFFComputeStrip(tiff, state->y, 0), (tdata_t)state->buffer, -1) == -1) {
@@ -479,6 +480,7 @@ int ImagingLibTiffDecode(Imaging im, ImagingCodecState state, UINT8* buffer, Py_
         }
 
         state->buffer = new_data;
+        memset(state->buffer, 0, state->bytes);
 
         TRACE(("TIFFTileSize: %d\n", state->bytes));
 
