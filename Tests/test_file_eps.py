@@ -1,4 +1,7 @@
 import io
+import os
+import shutil
+import tempfile
 
 from PIL import EpsImagePlugin, Image, UnidentifiedImageError
 import pytest
@@ -253,6 +256,25 @@ class TestFileEps(PillowTestCase):
         self.assertEqual(image.mode, "RGB")
         self.assertEqual(image.size, (460, 352))
         self.assertEqual(image.format, "EPS")
+
+    @unittest.skipUnless(HAS_GHOSTSCRIPT, "Ghostscript not available")
+    def test_filename_not_parsed_as_ghostscript_argument(self):
+        # A filename starting with "-" must not reach Ghostscript unmodified,
+        # or it would be parsed as an option (here, "-h" prints the help)
+        with open(file1, "rb") as f:
+            data = f.read()
+        cwd = os.getcwd()
+        tmpdir = tempfile.mkdtemp()
+        try:
+            os.chdir(tmpdir)
+            with open("-h", "wb") as f:
+                f.write(data)
+            im = Image.open("-h")
+            im.load()
+            self.assertEqual(im.size, (460, 352))
+        finally:
+            os.chdir(cwd)
+            shutil.rmtree(tmpdir)
 
 # @pytest.mark.timeout(timeout=5)
 # @pytest.mark.parametrize(

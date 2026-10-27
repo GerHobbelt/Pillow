@@ -99,7 +99,7 @@ def Ghostscript(tile, size, fp, scale=1):
 
     infile_temp = None
     if hasattr(fp, "name") and os.path.exists(fp.name):
-        infile = fp.name
+        infile = os.path.abspath(fp.name)
     else:
         in_fd, infile_temp = tempfile.mkstemp()
         os.close(in_fd)
