@@ -104,12 +104,14 @@ Fixed: backports of the upstream fixes, each with its regression test.
 
 Not affected:
 
-- CVE-2026-55798: ``WindowsViewer`` command injection. The viewer is only registered
-  on Windows; this release is built for Linux only.
+- CVE-2026-55798: ``WindowsViewer`` command injection. Not affected on Linux and
+  macOS builds: the viewer is only registered on Windows. Windows builds of this
+  release are still affected.
   [ezequielp-activestate]
 
-- CVE-2026-96644: heap over-read in WMF/EMF rendering. ``drawwmf`` is only compiled
-  on Windows.
+- CVE-2026-96644: heap over-read in WMF/EMF rendering. Not affected on Linux and
+  macOS builds: ``drawwmf`` is only compiled on Windows. Windows builds of this
+  release are still affected.
   [ezequielp-activestate]
 
 - CVE-2026-112896: TIFF encoder ColorMap plane-size mismatch. ColorMap is still
