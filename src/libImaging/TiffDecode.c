@@ -72,7 +72,7 @@ tsize_t _tiffWriteProc(thandle_t hdata, tdata_t buf, tsize_t size) {
     if (state->flrealloc && size>to_write) {
         tdata_t new_data;
         tsize_t newsize=state->size;
-        while (newsize < (size + state->size)) {
+        while (newsize < (size + (tsize_t)state->loc)) {
             if (newsize > INT_MAX - 64*1024){
                 return 0;
             }
@@ -86,9 +86,14 @@ tsize_t _tiffWriteProc(thandle_t hdata, tdata_t buf, tsize_t size) {
             // fail out
             return 0;
         }
+        memset((UINT8 *)new_data + state->size, 0, newsize - state->size);
         state->data = new_data;
         state->size = newsize;
         to_write = size;
+    } else if (to_write < 0) {
+        TIFFError("_tiffWriteProc", "Invalid Write at loc %lu, size: %lu",
+                  (unsigned long)state->loc, (unsigned long)state->size);
+        return 0;
     }
 
     TRACE(("to_write: %d\n", (int)to_write));
