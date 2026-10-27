@@ -181,6 +181,11 @@ def _save(im, fp, filename):
         compression = im.encoderinfo.get("compression", im.info.get("compression"))
         rle = compression == "tga_rle"
     if rle:
+        if im.mode == "1":
+            raise IOError(
+                "cannot write mode %s as TGA with run-length encoding" % im.mode
+            )
+
         imagetype += 8
 
     id_section = im.encoderinfo.get("id_section", im.info.get("id_section", ""))
