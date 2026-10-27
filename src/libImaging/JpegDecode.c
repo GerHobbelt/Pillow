@@ -254,6 +254,14 @@ ImagingJpegDecode(Imaging im, ImagingCodecState state, UINT8* buf, Py_ssize_t by
         if (!jpeg_start_decompress(&context->cinfo))
             break;
 
+        if (context->cinfo.output_width > (JDIMENSION) state->xsize ||
+            (size_t) context->cinfo.output_components *
+                context->cinfo.output_width > (size_t) state->bytes) {
+            jpeg_destroy_decompress(&context->cinfo);
+            state->errcode = IMAGING_CODEC_BROKEN;
+            return -1;
+        }
+
         state->state++;
         /* fall through */
 

@@ -653,6 +653,17 @@ class TestFileJpeg(PillowTestCase):
         im = Image.open("Tests/images/app13.jpg")
         self.assertNotIn("photoshop", im.info)
 
+    def test_wider_than_tile(self):
+        # The decoder's scanline buffer is sized from the tile extents,
+        # so a JPEG wider than its tile must be rejected
+        for extents in [(0, 0, 64, 64), (0, 0, 64, 128)]:
+            im = Image.open(TEST_FILE)
+            codec, _, offset, args = im.tile[0]
+            im.tile = [(codec, extents, offset, args)]
+            with self.assertRaises(IOError) as e:
+                im.load()
+            self.assertIn("broken data stream", str(e.exception))
+
 
 @unittest.skipUnless(sys.platform.startswith("win32"), "Windows only")
 class TestFileCloseW32(PillowTestCase):
