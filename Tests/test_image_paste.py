@@ -296,3 +296,15 @@ class TestImagingPaste(PillowTestCase):
 
         im.copy().paste(im2)
         im.copy().paste(im2, (0, 0))
+
+    def test_overflow(self):
+        for box in (
+            (2 ** 31 - 1, 0, -(2 ** 31), 1),
+            (0, 2 ** 31 - 1, 1, -(2 ** 31)),
+        ):
+            im = Image.new("1", (1, 1))
+            im.paste(1, box)
+
+            self.assertRaisesRegex(
+                ValueError, "images do not match", im.paste, im.copy(), box
+            )
