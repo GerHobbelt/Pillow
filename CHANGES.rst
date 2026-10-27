@@ -2,6 +2,126 @@
 Changelog (Pillow)
 ==================
 
+6.2.2.post12 (2026-10-27)
+-------------------------
+
+Security
+========
+
+Fixed: backports of the upstream fixes, each with its regression test.
+
+- Fix CVE-2026-112403: heap buffer overflow in ``ImagingJpegDecode``. The decoded
+  image size is now checked before scanlines are read.
+  [ezequielp-activestate]
+
+- Fix CVE-2026-112900: argument injection in the Ghostscript call for EPS files.
+  Ghostscript now gets an absolute path.
+  [ezequielp-activestate]
+
+- Fix CVE-2026-112393: heap buffer overflow in ``_tiffWriteProc`` when saving a TIFF
+  to a file-like object.
+  [ezequielp-activestate]
+
+- Fix CVE-2026-112897: the TIFF decoder returned uninitialised memory as pixels for
+  short strips and tiles. Buffers are now cleared.
+  [ezequielp-activestate]
+
+- Fix CVE-2026-112902: memory disclosure and crash in the libtiff encoder from
+  crafted tag values. Tag values are now checked against libtiff's field definitions.
+  A bytes value for a byte-array tag libtiff already knows now raises ``ValueError``.
+  [ezequielp-activestate]
+
+- Fix CVE-2026-112394: the P;2L and P;4L decoders read past the end of the buffer.
+  [ezequielp-activestate]
+
+- Fix CVE-2026-59198: the TGA RLE encoder leaked heap memory into the output for
+  mode "1" images, which are now rejected.
+  [ezequielp-activestate]
+
+- Fix CVE-2026-54058: out-of-bounds read through an attacker-controlled row stride on
+  the memory-mapped path (McIdas AREA).
+  [ezequielp-activestate]
+
+- Fix CVE-2026-112892: the MSP RLE decoder could expand a small file into unbounded
+  memory.
+  [ezequielp-activestate]
+
+- Fix CVE-2026-112899: EPS ``load(scale)`` let Ghostscript render past the
+  decompression-bomb limit.
+  [ezequielp-activestate]
+
+- Fix CVE-2026-112392 and CVE-2026-59197: NULL dereference and heap out-of-bounds
+  write in ``ImagingExpand`` (rank filters) on zero-size images and large margins.
+  [ezequielp-activestate]
+
+- Fix CVE-2026-112397: out-of-bounds access in ``_imagingmorph`` on a zero-width
+  image.
+  [ezequielp-activestate]
+
+- Fix CVE-2026-112402: double free in ``ImagingScaleAffine`` when an allocation
+  fails during ``Image.transform``.
+  [ezequielp-activestate]
+
+- Fix CVE-2026-59199: heap out-of-bounds write in ``Image.paste()`` and
+  ``Image.crop()`` through signed coordinate overflow.
+  [ezequielp-activestate]
+
+- Fix CVE-2026-59205: heap out-of-bounds write in ``ImageCmsTransform.apply()``
+  when the image modes don't match the transform.
+  [ezequielp-activestate]
+
+- Fix CVE-2026-96641: integer overflow in text width calculation.
+  [ezequielp-activestate]
+
+- Fix CVE-2026-96640, CVE-2026-112406, CVE-2026-112391, CVE-2026-112894 and
+  CVE-2026-112895: infinite loops, unbounded recursion and quadratic time in
+  ``PdfParser`` on crafted page trees and trailer chains. CVE-2026-112895 also closes
+  the gap left by the CVE-2026-42310 fix in 6.2.2.9: a long ``/Prev`` chain without
+  a repeated offset still recursed.
+  [ezequielp-activestate]
+
+- Fix CVE-2026-59200: decompression bomb in ``PdfParser.PdfStream.decode()``.
+  FlateDecode streams, which raised ``TypeError`` on Python 2.7, now decode.
+  [ezequielp-activestate]
+
+- Fix CVE-2026-54059, CVE-2026-54060, CVE-2026-55379 and CVE-2026-55380: the PCF,
+  BDF and GD loaders and ``FontFile.compile()`` skipped the decompression-bomb check.
+  [ezequielp-activestate]
+
+- Fix CVE-2026-96637 and CVE-2026-96636: ``seek()`` in the Spider, MPO, DCX and MIC
+  plugins skipped the decompression-bomb check.
+  [ezequielp-activestate]
+
+- Fix CVE-2026-112401: quadratic GIF comment concatenation in ``Image.open()``.
+  [ezequielp-activestate]
+
+- Fix CVE-2026-112901: ReDoS in the XBM header parser. C comments in the header are
+  skipped, so files with one still open.
+  [ezequielp-activestate]
+
+- Fix CVE-2026-96642: a negative size field in ``TarIO`` caused an infinite loop.
+  [ezequielp-activestate]
+
+Not affected:
+
+- CVE-2026-55798: ``WindowsViewer`` command injection. The viewer is only registered
+  on Windows; this release is built for Linux only.
+  [ezequielp-activestate]
+
+- CVE-2026-96644: heap over-read in WMF/EMF rendering. ``drawwmf`` is only compiled
+  on Windows.
+  [ezequielp-activestate]
+
+- CVE-2026-112896: TIFF encoder ColorMap plane-size mismatch. ColorMap is still
+  blocked from the libtiff encoder, so the vulnerable branch is never reached. It was
+  unblocked upstream in 8.3.0.
+  [ezequielp-activestate]
+
+- CVE-2023-4863: libwebp out-of-bounds write. A bug in libwebp, not in Pillow, which
+  uses the libwebp it is built against. Builds must link libwebp 1.3.2 or later.
+  [ezequielp-activestate]
+
+
 6.2.2.post11 (2026-10-22)
 -------------------------
 
