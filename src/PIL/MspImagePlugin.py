@@ -135,17 +135,20 @@ class MspDecoder(ImageFile.PyDecoder):
                         "Truncated MSP file, expected %d bytes on row %s", (rowlen, x)
                     )
                 idx = 0
+                row_data = bytearray()
                 while idx < rowlen:
                     runtype = i8(row[idx])
                     idx += 1
                     if runtype == 0:
                         (runcount, runval) = struct.unpack_from("Bc", row, idx)
-                        img.write(runval * runcount)
+                        runcount = min(runcount, self.state.xsize - len(row_data))
+                        row_data += runval * runcount
                         idx += 2
                     else:
-                        runcount = runtype
-                        img.write(row[idx : idx + runcount])
+                        runcount = min(runtype, self.state.xsize - len(row_data))
+                        row_data += row[idx : idx + runcount]
                         idx += runcount
+                img.write(row_data)
 
             except struct.error:
                 raise IOError("Corrupted MSP file in row %d" % x)

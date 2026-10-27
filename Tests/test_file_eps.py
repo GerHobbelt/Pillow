@@ -1,4 +1,8 @@
 import io
+import os
+import shutil
+import subprocess
+import tempfile
 
 from PIL import EpsImagePlugin, Image, UnidentifiedImageError
 import pytest
@@ -50,6 +54,22 @@ class TestFileEps(PillowTestCase):
         self.assertEqual(image2_scale2.mode, "RGB")
         self.assertEqual(image2_scale2.size, (720, 504))
         self.assertEqual(image2_scale2.format, "EPS")
+
+    def test_load_scale_decompression_bomb(self):
+        def failing_check_call(command, **kwargs):
+            self.fail("EPS size not checked before invoking Ghostscript")
+
+        im = Image.open(file1)
+        self.assertIsInstance(im, EpsImagePlugin.EpsImageFile)
+        orig_check_call = subprocess.check_call
+        orig_max = Image.MAX_IMAGE_PIXELS
+        subprocess.check_call = failing_check_call
+        Image.MAX_IMAGE_PIXELS = im.width * im.height
+        try:
+            self.assertRaises(Image.DecompressionBombError, im.load, scale=2)
+        finally:
+            subprocess.check_call = orig_check_call
+            Image.MAX_IMAGE_PIXELS = orig_max
 
     def test_invalid_file(self):
         invalid_file = "Tests/images/flower.jpg"
@@ -253,6 +273,25 @@ class TestFileEps(PillowTestCase):
         self.assertEqual(image.mode, "RGB")
         self.assertEqual(image.size, (460, 352))
         self.assertEqual(image.format, "EPS")
+
+    @unittest.skipUnless(HAS_GHOSTSCRIPT, "Ghostscript not available")
+    def test_filename_not_parsed_as_ghostscript_argument(self):
+        # A filename starting with "-" must not reach Ghostscript unmodified,
+        # or it would be parsed as an option (here, "-h" prints the help)
+        with open(file1, "rb") as f:
+            data = f.read()
+        cwd = os.getcwd()
+        tmpdir = tempfile.mkdtemp()
+        try:
+            os.chdir(tmpdir)
+            with open("-h", "wb") as f:
+                f.write(data)
+            im = Image.open("-h")
+            im.load()
+            self.assertEqual(im.size, (460, 352))
+        finally:
+            os.chdir(cwd)
+            shutil.rmtree(tmpdir)
 
 # @pytest.mark.timeout(timeout=5)
 # @pytest.mark.parametrize(

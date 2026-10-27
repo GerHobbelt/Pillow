@@ -7,6 +7,7 @@ import re
 import time
 import zlib
 
+from . import ImageFile
 from ._util import py3
 
 try:
@@ -133,12 +134,15 @@ class XrefTable:
         self.new_entries = {}  # object ID => (offset, generation)
         self.deleted_entries = {0: 65536}  # object ID => generation
         self.reading_finished = False
+        self._max_object_id = 0
 
     def __setitem__(self, key, value):
         if self.reading_finished:
             self.new_entries[key] = value
         else:
             self.existing_entries[key] = value
+        if key > self._max_object_id:
+            self._max_object_id = key
         if key in self.deleted_entries:
             del self.deleted_entries[key]
 
@@ -348,17 +352,17 @@ class PdfStream:
         self.dictionary = dictionary
         self.buf = buf
 
-    def decode(self):
+    def decode(self, max_length=ImageFile.SAFEBLOCK):
         try:
             filter = self.dictionary.Filter
         except AttributeError:
             return self.buf
         if filter == b"FlateDecode":
-            try:
-                expected_length = self.dictionary.DL
-            except AttributeError:
-                expected_length = self.dictionary.Length
-            return zlib.decompress(self.buf, bufsize=int(expected_length))
+            dobj = zlib.decompressobj()
+            plaintext = dobj.decompress(self.buf, max_length)
+            if dobj.unconsumed_tail:
+                raise ValueError("Decompressed data too large")
+            return plaintext
         else:
             raise NotImplementedError(
                 "stream filter %s unknown/unsupported" % repr(self.dictionary.Filter)
@@ -509,7 +513,9 @@ class PdfParser:
                     self.pages[j] = new_page_ref
         # delete redundant Pages tree nodes from xref table
         for pages_tree_node_ref in pages_tree_nodes_to_delete:
-            while pages_tree_node_ref:
+            processed_refs = []
+            while pages_tree_node_ref and pages_tree_node_ref not in processed_refs:
+                processed_refs.append(pages_tree_node_ref)
                 pages_tree_node = self.cached_objects[pages_tree_node_ref]
                 if pages_tree_node_ref.object_id in self.xref_table:
                     del self.xref_table[pages_tree_node_ref.object_id]
@@ -606,18 +612,15 @@ class PdfParser:
         )
         self.pages_ref = self.root[b"Pages"]
         self.page_tree_root = self.read_indirect(self.pages_ref)
-        self.pages = self.linearize_page_tree(self.page_tree_root)
+        self.pages = self.linearize_page_tree()
         # save the original list of page references
         # in case the user modifies, adds or deletes some pages
         # and we need to rewrite the pages and their list
         self.orig_pages = self.pages[:]
 
     def next_object_id(self, offset=None):
-        try:
-            # TODO: support reuse of deleted objects
-            reference = IndirectReference(max(self.xref_table.keys()) + 1, 0)
-        except ValueError:
-            reference = IndirectReference(1, 0)
+        # TODO: support reuse of deleted objects
+        reference = IndirectReference(self.xref_table._max_object_id + 1, 0)
         if offset is not None:
             self.xref_table[reference.object_id] = (offset, 0)
         return reference
@@ -683,27 +686,30 @@ class PdfParser:
             self.read_prev_trailer(self.trailer_dict[b"Prev"])
 
     def read_prev_trailer(self, xref_section_offset, processed_offsets=None):
-        # Backport of CVE-2026-42310: detect and break trailer pointer cycles
         if processed_offsets is None:
             processed_offsets = []
-        trailer_offset = self.read_xref_table(xref_section_offset=xref_section_offset)
-        m = self.re_trailer_prev.search(
-            self.buf[trailer_offset : trailer_offset + 16384]
-        )
-        check_format_condition(m, "previous trailer not found")
-        trailer_data = m.group(1)
-        check_format_condition(
-            int(m.group(2)) == xref_section_offset,
-            "xref section offset in previous trailer doesn't match what was expected",
-        )
-        trailer_dict = self.interpret_trailer(trailer_data)
-        if b"Prev" in trailer_dict:
-            processed_offsets.append(xref_section_offset)
+        while True:
             check_format_condition(
-                trailer_dict[b"Prev"] not in processed_offsets,
-                "trailer loop found",
+                xref_section_offset not in processed_offsets, "trailer loop found"
             )
-            self.read_prev_trailer(trailer_dict[b"Prev"], processed_offsets)
+            trailer_offset = self.read_xref_table(
+                xref_section_offset=xref_section_offset
+            )
+            m = self.re_trailer_prev.search(
+                self.buf[trailer_offset : trailer_offset + 16384]
+            )
+            check_format_condition(m, "previous trailer not found")
+            trailer_data = m.group(1)
+            check_format_condition(
+                int(m.group(2)) == xref_section_offset,
+                "xref section offset in previous trailer "
+                "doesn't match what was expected",
+            )
+            trailer_dict = self.interpret_trailer(trailer_data)
+            if b"Prev" not in trailer_dict:
+                break
+            processed_offsets.append(xref_section_offset)
+            xref_section_offset = trailer_dict[b"Prev"]
 
     re_whitespace_optional = re.compile(whitespace_optional)
     re_name = re.compile(
@@ -807,7 +813,7 @@ class PdfParser:
     )
 
     @classmethod
-    def get_value(cls, data, offset, expect_indirect=None, max_nesting=-1):
+    def get_value(cls, data, offset, expect_indirect=None, max_nesting=900):
         if max_nesting == 0:
             return None, None
         m = cls.re_comment.match(data, offset)
@@ -1019,7 +1025,7 @@ class PdfParser:
                     self.xref_table[i] = new_entry
         return offset
 
-    def read_indirect(self, ref, max_nesting=-1):
+    def read_indirect(self, ref, max_nesting=900):
         offset, generation = self.xref_table[ref[0]]
         check_format_condition(
             generation == ref[1],
@@ -1037,16 +1043,37 @@ class PdfParser:
         return value
 
     def linearize_page_tree(self, node=None):
-        if node is None:
-            node = self.page_tree_root
+        processed_ids = set()
+        if node is not None:
+            page_node = node
+        else:
+            page_node = self.page_tree_root
+            if self.pages_ref is not None:
+                processed_ids.add(self.pages_ref.object_id)
         check_format_condition(
-            node[b"Type"] == b"Pages", "/Type of page tree node is not /Pages"
+            page_node[b"Type"] == b"Pages", "/Type of page tree node is not /Pages"
         )
         pages = []
-        for kid in node[b"Kids"]:
+        # Walk the tree with a stack of iterators rather than recursion,
+        # so that a deep page tree cannot exhaust the call stack
+        stack = [iter(page_node[b"Kids"])]
+        while stack:
+            kid = next(stack[-1], None)
+            if kid is None:
+                stack.pop()
+                continue
+            check_format_condition(
+                kid.object_id not in processed_ids,
+                "page tree contains a cyclic or duplicate reference to %s" % (kid,),
+            )
+            processed_ids.add(kid.object_id)
             kid_object = self.read_indirect(kid)
             if kid_object[b"Type"] == b"Page":
                 pages.append(kid)
             else:
-                pages.extend(self.linearize_page_tree(node=kid_object))
+                check_format_condition(
+                    kid_object[b"Type"] == b"Pages",
+                    "/Type of page tree node is not /Pages",
+                )
+                stack.append(iter(kid_object[b"Kids"]))
         return pages

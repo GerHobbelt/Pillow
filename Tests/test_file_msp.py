@@ -1,4 +1,6 @@
+import io
 import os
+import struct
 
 from PIL import Image, MspImagePlugin
 
@@ -68,6 +70,38 @@ class TestFileMsp(PillowTestCase):
                 continue
             path = os.path.join(YA_EXTRA_DIR, f)
             self._assert_file_image_equal(path, path.replace(".MSP", ".png"))
+
+    def test_rle_row_overrun(self):
+        # Runs that decode to more than a row's worth of data must be
+        # truncated to the row, rather than all being kept in memory
+        xsize, ysize = 8, 2
+        header = [0] * 16
+        header[0], header[1] = struct.unpack("<2H", b"LinS")
+        header[2], header[3] = xsize, ysize
+        for h in header[:12]:
+            header[12] ^= h
+        rows = [b"\x00\xff\x00" * 100, b"\x01\xaa"]
+        data = struct.pack("<16H", *header)
+        data += struct.pack("<%dH" % ysize, *[len(row) for row in rows])
+        data += b"".join(rows)
+
+        decoded = []
+        original_set_as_raw = MspImagePlugin.MspDecoder.set_as_raw
+
+        def set_as_raw(decoder, data, rawmode=None):
+            decoded.append(data)
+            return original_set_as_raw(decoder, data, rawmode)
+
+        MspImagePlugin.MspDecoder.set_as_raw = set_as_raw
+        try:
+            im = Image.open(io.BytesIO(data))
+            im.load()
+        finally:
+            MspImagePlugin.MspDecoder.set_as_raw = original_set_as_raw
+
+        self.assertEqual(len(decoded), 1)
+        self.assertEqual(len(decoded[0]), xsize + 1)
+        self.assertEqual(decoded[0], b"\x00" * xsize + b"\xaa")
 
     def test_cannot_save_wrong_mode(self):
         # Arrange

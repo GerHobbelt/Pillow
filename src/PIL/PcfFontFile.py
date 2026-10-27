@@ -154,6 +154,7 @@ class PcfFontFile(FontFile.FontFile):
                 descent = i8(fp.read(1)) - 128
                 xsize = right - left
                 ysize = ascent + descent
+                Image._decompression_bomb_check((xsize, ysize))
                 append((xsize, ysize, left, right, width, ascent, descent, 0))
 
         else:
@@ -168,6 +169,7 @@ class PcfFontFile(FontFile.FontFile):
                 attributes = i16(fp.read(2))
                 xsize = right - left
                 ysize = ascent + descent
+                Image._decompression_bomb_check((xsize, ysize))
                 append((xsize, ysize, left, right, width, ascent, descent, attributes))
 
         return metrics

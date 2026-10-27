@@ -1,3 +1,4 @@
+import struct
 import tempfile
 from io import BytesIO
 
@@ -129,3 +130,22 @@ class TestImageSpider(PillowTestCase):
         data.seek(0)
         im2 = Image.open(data)
         self.assert_image_equal(im, im2)
+
+    def test_seek_decompression_bomb(self):
+        with open(TEST_FILE, "rb") as fp:
+            data = fp.read()
+        # istack
+        first_frame = data[: 23 * 4] + struct.pack("<f", 1) + data[24 * 4 :]
+        # frame count
+        first_frame = (
+            first_frame[: 25 * 4] + struct.pack("<f", 2) + first_frame[26 * 4 :]
+        )
+
+        # width
+        second_frame = data[: 11 * 4] + struct.pack("<f", 65535) + data[12 * 4 :]
+        # height
+        second_frame = (
+            second_frame[: 1 * 4] + struct.pack("<f", 65535) + second_frame[2 * 4 :]
+        )
+        im = Image.open(BytesIO(first_frame + b"\x00" * 1024 + second_frame))
+        self.assertRaises(Image.DecompressionBombError, im.seek, 1)

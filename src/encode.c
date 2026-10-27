@@ -623,6 +623,122 @@ PyImaging_ZipEncoderNew(PyObject* self, PyObject* args)
 
 #include <string.h>
 
+/* C type that TIFFSetField reads from its arguments for a single value of
+   the given type: int, uint64, double or char * */
+static int
+tiff_scalar_arg_type(TIFFDataType type)
+{
+    switch (type) {
+        case TIFF_BYTE:
+        case TIFF_SBYTE:
+        case TIFF_UNDEFINED:
+        case TIFF_SHORT:
+        case TIFF_SSHORT:
+        case TIFF_LONG:
+        case TIFF_SLONG:
+        case TIFF_IFD:
+            return 1;
+        case TIFF_LONG8:
+        case TIFF_SLONG8:
+        case TIFF_IFD8:
+            return 2;
+        case TIFF_FLOAT:
+        case TIFF_DOUBLE:
+        case TIFF_RATIONAL:
+        case TIFF_SRATIONAL:
+            return 3;
+        case TIFF_ASCII:
+            return 4;
+        default:
+            return 0;
+    }
+}
+
+/* Size of the values that TIFFSetField copies from an array of the given
+   type. libtiff stores custom RATIONAL arrays as floats. */
+static int
+tiff_array_item_size(TIFFDataType type)
+{
+    switch (type) {
+        case TIFF_BYTE:
+        case TIFF_SBYTE:
+        case TIFF_UNDEFINED:
+        case TIFF_ASCII:
+            return 1;
+        case TIFF_SHORT:
+        case TIFF_SSHORT:
+            return 2;
+        case TIFF_LONG:
+        case TIFF_SLONG:
+        case TIFF_IFD:
+        case TIFF_FLOAT:
+        case TIFF_RATIONAL:
+        case TIFF_SRATIONAL:
+            return 4;
+        case TIFF_DOUBLE:
+        case TIFF_LONG8:
+        case TIFF_SLONG8:
+        case TIFF_IFD8:
+            return 8;
+        default:
+            return 0;
+    }
+}
+
+static int
+tiff_needs_field_definition(int is_core_tag, int key)
+{
+    return !is_core_tag || key == TIFFTAG_TRANSFERFUNCTION ||
+           key == TIFFTAG_COLORMAP || key == TIFFTAG_YCBCRSUBSAMPLING ||
+           key == TIFFTAG_REFERENCEBLACKWHITE;
+}
+
+/* Tags that libtiff reads as separate values rather than as an array */
+static int
+tiff_special_field_matches(int key, TIFFDataType type, int is_var_length,
+                           Py_ssize_t len)
+{
+    if (key == TIFFTAG_YCBCRSUBSAMPLING) {
+        return is_var_length && type == TIFF_SHORT && len == 2;
+    }
+    return 0;
+}
+
+/* Check that a value which will be passed to TIFFSetField as a single value
+   of the given type, or as an array of len values, matches the definition
+   of the field that libtiff will use. */
+static int
+tiff_field_matches(TIFFDataType field_type, int passcount, int writecount,
+                   TIFFDataType type, int is_var_length, Py_ssize_t len)
+{
+    if (field_type == TIFF_ASCII && !passcount) {
+        // TIFFSetField reads a null-terminated string
+        return !is_var_length && type == TIFF_ASCII;
+    }
+    if (!is_var_length) {
+        // TIFFSetField reads a single value
+        return !passcount && writecount == 1 && tiff_scalar_arg_type(type) &&
+               tiff_scalar_arg_type(type) == tiff_scalar_arg_type(field_type);
+    }
+    // TIFFSetField reads a pointer to the values, preceded by the number of
+    // values if passcount is set. Otherwise, the number of values is fixed.
+    if (!tiff_array_item_size(type) ||
+        tiff_array_item_size(type) != tiff_array_item_size(field_type)) {
+        return 0;
+    }
+    return passcount || (writecount > 1 && len == writecount);
+}
+
+static int
+set_tiff_array_field(ImagingCodecState state, int key, int passcount,
+                     Py_ssize_t len, void *av)
+{
+    if (passcount) {
+        return ImagingLibTiffSetField(state, (ttag_t) key, len, av);
+    }
+    return ImagingLibTiffSetField(state, (ttag_t) key, av);
+}
+
 PyObject*
 PyImaging_LibTiffEncoderNew(PyObject* self, PyObject* args)
 {
@@ -638,7 +754,8 @@ PyImaging_LibTiffEncoderNew(PyObject* self, PyObject* args)
     PyObject *key, *value;
     Py_ssize_t pos = 0;
     int key_int, status, is_core_tag, is_var_length, num_core_tags, i;
-    TIFFDataType type = TIFF_NOTYPE;
+    int is_known_tag, passcount, writecount;
+    TIFFDataType type = TIFF_NOTYPE, field_type;
     // This list also exists in TiffTags.py
     const int core_tags[] = {
         256, 257, 258, 259, 262, 263, 266, 269, 274, 277, 278, 280, 281, 340,
@@ -698,12 +815,24 @@ PyImaging_LibTiffEncoderNew(PyObject* self, PyObject* args)
         status = 0;
         is_core_tag = 0;
         is_var_length = 0;
+        is_known_tag = 0;
+        passcount = 1;
+        writecount = 0;
         type = TIFF_NOTYPE;
+        field_type = TIFF_NOTYPE;
 
         for (i=0; i<num_core_tags; i++) {
             if (core_tags[i] == key_int) {
                 is_core_tag = 1;
                 break;
+            }
+        }
+
+        if (tiff_needs_field_definition(is_core_tag, key_int)) {
+            is_known_tag = ImagingLibTiffFindField(&encoder->state, key_int,
+                                                   &field_type, &passcount, &writecount);
+            if (is_known_tag && type == TIFF_NOTYPE) {
+                type = field_type;
             }
         }
 
@@ -764,12 +893,36 @@ PyImaging_LibTiffEncoderNew(PyObject* self, PyObject* args)
             }
         }
 
+        if (is_known_tag) {
+            // Check that the value will be passed to TIFFSetField in the
+            // form that libtiff's definition of the tag expects.
+            Py_ssize_t len = 0;
+            if (PyTuple_Check(value)) {
+                len = PyTuple_Size(value);
+            } else if (PyBytes_Check(value)) {
+                len = PyBytes_Size(value);
+            }
+            if (!(tiff_special_field_matches(key_int, type, is_var_length, len) ||
+                  tiff_field_matches(field_type, passcount, writecount,
+                                     type, is_var_length, len))) {
+                Py_DECREF(encoder);
+                PyErr_SetString(PyExc_ValueError,
+                                "Tag value does not match libtiff field definition");
+                return NULL;
+            }
+        }
+
         if (is_var_length) {
             Py_ssize_t len,i;
             TRACE(("Setting from Tuple: %d \n", key_int));
             len = PyTuple_Size(value);
 
-            if (type == TIFF_BYTE) {
+            if (key_int == TIFFTAG_YCBCRSUBSAMPLING) {
+                status = ImagingLibTiffSetField(&encoder->state,
+                        (ttag_t) key_int,
+                        (UINT16)PyInt_AsLong(PyTuple_GetItem(value, 0)),
+                        (UINT16)PyInt_AsLong(PyTuple_GetItem(value, 1)));
+            } else if (type == TIFF_BYTE) {
                 UINT8 *av;
                 /* malloc check ok, calloc checks for overflow */
                 av = calloc(len, sizeof(UINT8));
@@ -777,7 +930,7 @@ PyImaging_LibTiffEncoderNew(PyObject* self, PyObject* args)
                     for (i=0;i<len;i++) {
                         av[i] = (UINT8)PyInt_AsLong(PyTuple_GetItem(value,i));
                     }
-                    status = ImagingLibTiffSetField(&encoder->state, (ttag_t) key_int, len, av);
+                    status = set_tiff_array_field(&encoder->state, key_int, passcount, len, av);
                     free(av);
                 }
             } else if (type == TIFF_SHORT) {
@@ -788,7 +941,7 @@ PyImaging_LibTiffEncoderNew(PyObject* self, PyObject* args)
                     for (i=0;i<len;i++) {
                         av[i] = (UINT16)PyInt_AsLong(PyTuple_GetItem(value,i));
                     }
-                    status = ImagingLibTiffSetField(&encoder->state, (ttag_t) key_int, len, av);
+                    status = set_tiff_array_field(&encoder->state, key_int, passcount, len, av);
                     free(av);
                 }
             } else if (type == TIFF_LONG) {
@@ -799,7 +952,7 @@ PyImaging_LibTiffEncoderNew(PyObject* self, PyObject* args)
                     for (i=0;i<len;i++) {
                         av[i] = (UINT32)PyInt_AsLong(PyTuple_GetItem(value,i));
                     }
-                    status = ImagingLibTiffSetField(&encoder->state, (ttag_t) key_int, len, av);
+                    status = set_tiff_array_field(&encoder->state, key_int, passcount, len, av);
                     free(av);
                 }
             } else if (type == TIFF_SBYTE) {
@@ -810,7 +963,7 @@ PyImaging_LibTiffEncoderNew(PyObject* self, PyObject* args)
                     for (i=0;i<len;i++) {
                         av[i] = (INT8)PyInt_AsLong(PyTuple_GetItem(value,i));
                     }
-                    status = ImagingLibTiffSetField(&encoder->state, (ttag_t) key_int, len, av);
+                    status = set_tiff_array_field(&encoder->state, key_int, passcount, len, av);
                     free(av);
                 }
             } else if (type == TIFF_SSHORT) {
@@ -821,7 +974,7 @@ PyImaging_LibTiffEncoderNew(PyObject* self, PyObject* args)
                     for (i=0;i<len;i++) {
                         av[i] = (INT16)PyInt_AsLong(PyTuple_GetItem(value,i));
                     }
-                    status = ImagingLibTiffSetField(&encoder->state, (ttag_t) key_int, len, av);
+                    status = set_tiff_array_field(&encoder->state, key_int, passcount, len, av);
                     free(av);
                 }
             } else if (type == TIFF_SLONG) {
@@ -832,10 +985,11 @@ PyImaging_LibTiffEncoderNew(PyObject* self, PyObject* args)
                     for (i=0;i<len;i++) {
                         av[i] = (INT32)PyInt_AsLong(PyTuple_GetItem(value,i));
                     }
-                    status = ImagingLibTiffSetField(&encoder->state, (ttag_t) key_int, len, av);
+                    status = set_tiff_array_field(&encoder->state, key_int, passcount, len, av);
                     free(av);
                 }
-            } else if (type == TIFF_FLOAT) {
+            } else if (type == TIFF_FLOAT || type == TIFF_RATIONAL ||
+                       type == TIFF_SRATIONAL) {
                 FLOAT32 *av;
                 /* malloc check ok, calloc checks for overflow */
                 av = calloc(len, sizeof(FLOAT32));
@@ -843,7 +997,7 @@ PyImaging_LibTiffEncoderNew(PyObject* self, PyObject* args)
                     for (i=0;i<len;i++) {
                         av[i] = (FLOAT32)PyFloat_AsDouble(PyTuple_GetItem(value,i));
                     }
-                    status = ImagingLibTiffSetField(&encoder->state, (ttag_t) key_int, len, av);
+                    status = set_tiff_array_field(&encoder->state, key_int, passcount, len, av);
                     free(av);
                 }
             } else if (type == TIFF_DOUBLE) {
@@ -854,7 +1008,7 @@ PyImaging_LibTiffEncoderNew(PyObject* self, PyObject* args)
                     for (i=0;i<len;i++) {
                         av[i] = PyFloat_AsDouble(PyTuple_GetItem(value,i));
                     }
-                    status = ImagingLibTiffSetField(&encoder->state, (ttag_t) key_int, len, av);
+                    status = set_tiff_array_field(&encoder->state, key_int, passcount, len, av);
                     free(av);
                 }
             }
@@ -895,7 +1049,7 @@ PyImaging_LibTiffEncoderNew(PyObject* self, PyObject* args)
                 status = ImagingLibTiffSetField(&encoder->state,
                         (ttag_t) key_int,
                         PyBytes_AsString(value));
-            } else if (type == TIFF_RATIONAL) {
+            } else if (type == TIFF_RATIONAL || type == TIFF_SRATIONAL) {
                 status = ImagingLibTiffSetField(&encoder->state,
                         (ttag_t) key_int,
                         (FLOAT64)PyFloat_AsDouble(value));

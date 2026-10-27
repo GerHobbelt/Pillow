@@ -1,4 +1,9 @@
+import signal
 import time
+import zlib
+from io import BytesIO
+
+import pytest
 
 from PIL.PdfParser import (
     IndirectObjectDef,
@@ -15,6 +20,10 @@ from PIL.PdfParser import (
 )
 
 from .helper import PillowTestCase
+
+
+def _raise_timeout(signum, frame):
+    raise AssertionError("timed out")
 
 
 class TestPdfParser(PillowTestCase):
@@ -105,6 +114,41 @@ class TestPdfParser(PillowTestCase):
                 )[0]
                 self.assertEqual(time.strftime("%Y%m%d%H%M%S", getattr(d, name)), value)
 
+    def test_max_nesting(self):
+        data = b"<</Name" + b"[" * 1000 + b"]" * 1000 + b">>"
+
+        # Test get_value default
+        PdfParser.get_value(data, 0)
+
+        # Test read_indirect default
+        b = BytesIO()
+        with PdfParser(f=b, mode="wb") as pdf:
+            pdf.start_writing()
+            pdf.write_header()
+
+            pdf.write_catalog()
+            pdf.write_xref_and_trailer()
+
+        ref = IndirectObjectDef(1, 0)
+        with PdfParser(f=b) as pdf:
+            pdf.buf = b" " * 9 + b"1 0 obj" + data + b"endobj"
+            pdf.read_indirect(ref)
+
+    def test_pdfstream_flatedecode(self):
+        d = PdfDict({b"Filter": PdfName(b"FlateDecode")})
+        buf = zlib.compress(b"test")
+        s = PdfStream(d, buf)
+        self.assertEqual(s.decode(), b"test")
+
+        with pytest.raises(ValueError, match="Decompressed data too large"):
+            s.decode(3)
+
+    def test_pdfstream_flatedecode_default_limit(self):
+        d = PdfDict({b"Filter": PdfName(b"FlateDecode"), b"Length": 0})
+        s = PdfStream(d, zlib.compress(b"\0" * (2 * 1024 * 1024)))
+        with pytest.raises(ValueError, match="Decompressed data too large"):
+            s.decode()
+
     def test_pdf_repr(self):
         self.assertEqual(bytes(IndirectReference(1, 2)), b"1 2 R")
         self.assertEqual(bytes(IndirectObjectDef(*IndirectReference(1, 2))), b"1 2 obj")
@@ -138,3 +182,126 @@ class TestPdfParser(PillowTestCase):
             pdf_repr([123, True, {"a": PdfName(b"b")}]), b"[ 123 true <<\n/a /b\n>> ]"
         )
         self.assertEqual(pdf_repr(PdfBinary(b"\x90\x1F\xA0")), b"<901FA0>")
+
+    def test_linearize_page_tree_duplicate_reference(self):
+        b = BytesIO()
+        with PdfParser(f=b, mode="wb") as pdf:
+            pdf.start_writing()
+            pdf.write_header()
+
+            pages_ids = [pdf.next_object_id(0) for _ in range(2)]
+            pdf.write_obj(
+                pages_ids[0], Type=PdfName(b"Pages"), Count=1, Kids=[pages_ids[1]]
+            )
+            pdf.write_obj(
+                pages_ids[1], Type=PdfName(b"Pages"), Count=1, Kids=[pages_ids[0]]
+            )
+
+            pdf.write_catalog()
+            pdf.write_xref_and_trailer()
+
+        with PdfParser(f=b) as pdf:
+            with pytest.raises(PdfFormatError, match="cyclic or duplicate reference"):
+                pdf.linearize_page_tree(
+                    PdfDict({b"Type": b"Pages", b"Kids": [pages_ids[0]]})
+                )
+
+        b = BytesIO()
+        with PdfParser(f=b, mode="wb") as pdf:
+            pdf.start_writing()
+            pdf.write_header()
+
+            pdf.write_catalog()
+            pdf.write_xref_and_trailer()
+
+        with PdfParser(f=b) as pdf:
+            pdf.page_tree_root[b"Kids"] = [pdf.pages_ref]
+            with pytest.raises(PdfFormatError, match="cyclic or duplicate reference"):
+                pdf.linearize_page_tree()
+
+    @pytest.mark.skipif(not hasattr(signal, "SIGALRM"), reason="needs SIGALRM")
+    def test_write_catalog_loop(self):
+        b = BytesIO()
+        with PdfParser(f=b, mode="wb") as pdf:
+            pdf.start_writing()
+            pdf.write_header()
+
+            page_ids = [pdf.next_object_id(0) for _ in range(2)]
+            pdf.write_page(page_ids[0], Parent=page_ids[1])
+            pdf.write_page(page_ids[1], Parent=page_ids[0])
+
+            pdf.pages = [page_ids[0], page_ids[1]]
+            pdf.write_catalog()
+            pdf.write_xref_and_trailer()
+
+        old_handler = signal.signal(signal.SIGALRM, _raise_timeout)
+        signal.alarm(5)
+        try:
+            with PdfParser(f=b) as pdf:
+                pdf.start_writing()
+                pdf.write_header()
+                pdf.write_catalog()
+        finally:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, old_handler)
+
+    def test_next_object_id(self):
+        pdf = PdfParser()
+        self.assertEqual(pdf.next_object_id(), IndirectReference(1, 0))
+        pdf.xref_table[5] = (0, 0)
+        pdf.xref_table[3] = (0, 0)
+        self.assertEqual(pdf.next_object_id(), IndirectReference(6, 0))
+        self.assertEqual(pdf.next_object_id(0), IndirectReference(6, 0))
+        self.assertEqual(pdf.next_object_id(), IndirectReference(7, 0))
+
+    @pytest.mark.skipif(not hasattr(signal, "SIGALRM"), reason="needs SIGALRM")
+    def test_next_object_id_many_objects(self):
+        pdf = PdfParser()
+        old_handler = signal.signal(signal.SIGALRM, _raise_timeout)
+        signal.alarm(5)
+        try:
+            for _ in range(20000):
+                pdf.next_object_id(0)
+        finally:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, old_handler)
+        self.assertEqual(pdf.next_object_id(), IndirectReference(20001, 0))
+
+    def test_linearize_page_tree_deep(self):
+        # A deep, but acyclic, page tree should not exhaust the call stack
+        b = BytesIO()
+        with PdfParser(f=b, mode="wb") as pdf:
+            pdf.start_writing()
+            pdf.write_header()
+
+            pages_ids = [pdf.next_object_id(0) for _ in range(2000)]
+            page_id = pdf.next_object_id(0)
+            pdf.write_page(page_id)
+            for i, pages_id in enumerate(pages_ids):
+                kid = pages_ids[i + 1] if i + 1 < len(pages_ids) else page_id
+                pdf.write_obj(pages_id, Type=PdfName(b"Pages"), Count=1, Kids=[kid])
+
+            pdf.pages = [pages_ids[0]]
+            pdf.write_catalog()
+            pdf.write_xref_and_trailer()
+
+        with PdfParser(f=b) as pdf:
+            self.assertEqual(pdf.pages, [page_id])
+
+    def test_trailer_loop(self):
+        with pytest.raises(PdfFormatError, match="trailer loop found"):
+            PdfParser("Tests/images/trailer_loop.pdf")
+
+    def test_long_trailer_chain(self):
+        b = BytesIO()
+        with PdfParser(f=b, mode="wb") as pdf:
+            pdf.start_writing()
+            pdf.write_header()
+
+            pdf.write_catalog()
+            for _ in range(1000):
+                pdf.write_xref_and_trailer()
+            pdf.write_xref_and_trailer()
+
+        with PdfParser(f=b):
+            pass

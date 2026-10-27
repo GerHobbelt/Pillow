@@ -163,7 +163,17 @@ class TestImageCms(PillowTestCase):
         psRGB = ImageCms.createProfile("sRGB")
         pLab = ImageCms.createProfile("LAB")
         t = ImageCms.buildTransform(pLab, psRGB, "LAB", "RGB")
-        self.assertRaises(ValueError, t.apply_in_place, hopper("RGBA"))
+        self.assertRaisesRegex(ValueError, "mode mismatch", t.apply, hopper("RGBA"))
+        self.assertRaisesRegex(
+            ValueError,
+            "mode mismatch",
+            t.apply,
+            Image.new("LAB", (128, 128)),
+            hopper("RGBA"),
+        )
+        self.assertRaisesRegex(
+            ValueError, "mode mismatch", t.apply_in_place, hopper("RGBA")
+        )
 
         # the procedural pyCMS API uses PyCMSError for all sorts of errors
         self.assertRaises(

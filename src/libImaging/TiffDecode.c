@@ -72,7 +72,7 @@ tsize_t _tiffWriteProc(thandle_t hdata, tdata_t buf, tsize_t size) {
     if (state->flrealloc && size>to_write) {
         tdata_t new_data;
         tsize_t newsize=state->size;
-        while (newsize < (size + state->size)) {
+        while (newsize < (size + (tsize_t)state->loc)) {
             if (newsize > INT_MAX - 64*1024){
                 return 0;
             }
@@ -86,9 +86,14 @@ tsize_t _tiffWriteProc(thandle_t hdata, tdata_t buf, tsize_t size) {
             // fail out
             return 0;
         }
+        memset((UINT8 *)new_data + state->size, 0, newsize - state->size);
         state->data = new_data;
         state->size = newsize;
         to_write = size;
+    } else if (to_write < 0) {
+        TIFFError("_tiffWriteProc", "Invalid Write at loc %lu, size: %lu",
+                  (unsigned long)state->loc, (unsigned long)state->size);
+        return 0;
     }
 
     TRACE(("to_write: %d\n", (int)to_write));
@@ -327,6 +332,7 @@ int _decodeStrip(Imaging im, ImagingCodecState state, TIFF *tiff) {
     }
 
     state->buffer = new_data;
+    memset(state->buffer, 0, state->bytes);
 
     for (; state->y < state->ysize; state->y += rows_per_strip) {
         if (TIFFReadEncodedStrip(tiff, TIFFComputeStrip(tiff, state->y, 0), (tdata_t)state->buffer, -1) == -1) {
@@ -474,6 +480,7 @@ int ImagingLibTiffDecode(Imaging im, ImagingCodecState state, UINT8* buffer, Py_
         }
 
         state->buffer = new_data;
+        memset(state->buffer, 0, state->bytes);
 
         TRACE(("TIFFTileSize: %d\n", state->bytes));
 
@@ -648,6 +655,27 @@ int ImagingLibTiffMergeFieldInfo(ImagingCodecState state, TIFFDataType field_typ
     TIFFMergeFieldInfo(clientstate->tiff, info, n);
 #endif
     return status;
+}
+
+int ImagingLibTiffFindField(ImagingCodecState state, int key, TIFFDataType *field_type,
+                            int *passcount, int *writecount){
+    // Look up libtiff's own definition of a tag. TIFFMergeFieldInfo does not
+    // replace the definition of a tag that libtiff already knows, so this is
+    // what TIFFSetField will use for such tags.
+#if TIFFLIB_VERSION >= 20111221 && TIFFLIB_VERSION != 20120218 && TIFFLIB_VERSION != 20120922
+    TIFFSTATE *clientstate = (TIFFSTATE *)state->context;
+    const TIFFField *fip = TIFFFindField(clientstate->tiff, (ttag_t)key, TIFF_ANY);
+
+    if (!fip) {
+        return 0;
+    }
+    *field_type = TIFFFieldDataType(fip);
+    *passcount = TIFFFieldPassCount(fip);
+    *writecount = TIFFFieldWriteCount(fip);
+    return 1;
+#else
+    return 0;
+#endif
 }
 
 int ImagingLibTiffSetField(ImagingCodecState state, ttag_t tag, ...){

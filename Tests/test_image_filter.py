@@ -84,11 +84,34 @@ class TestImageFilter(PillowTestCase):
         self.assertEqual(rankfilter("I"), (0, 4, 8))
         self.assertEqual(rankfilter("F"), (0.0, 4.0, 8.0))
 
+    def test_rankfilter_zero_dimension(self):
+        for filter in (
+            ImageFilter.MinFilter(1),
+            ImageFilter.MedianFilter(1),
+            ImageFilter.MaxFilter(1),
+            ImageFilter.RankFilter(3, 1),
+        ):
+            for size in ((0, 1), (1, 0), (0, 0)):
+                im = Image.new("L", size)
+                self.assertEqual(im.filter(filter).size, size)
+
     def test_rankfilter_properties(self):
         rankfilter = ImageFilter.RankFilter(1, 2)
 
         self.assertEqual(rankfilter.size, 1)
         self.assertEqual(rankfilter.rank, 2)
+
+        self.assertRaisesRegex(
+            ValueError, "filter size too large", ImageFilter.RankFilter, 23171, 1
+        )
+        im = Image.new("1", (1, 1))
+        self.assertRaisesRegex(
+            ValueError, "filter size too large", im.im.expand, 23171, 23171
+        )
+        self.assertRaisesRegex(
+            ValueError, "filter size too large", im.im.expand, 0, 23171
+        )
+        self.assertRaisesRegex(ValueError, "bad kernel size", im.im.expand, -1, 1)
 
     def test_builtinfilter_p(self):
         builtinFilter = ImageFilter.BuiltinFilter()

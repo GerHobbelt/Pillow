@@ -818,7 +818,6 @@ ImagingScaleAffine(Imaging imOut, Imaging imIn,
     /* malloc check ok, uses calloc for overflow */
     xintab = (int*) calloc(imOut->xsize, sizeof(int));
     if (!xintab) {
-        ImagingDelete(imOut);
         return (Imaging) ImagingError_MemoryError();
     }
 

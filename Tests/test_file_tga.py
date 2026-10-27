@@ -181,6 +181,17 @@ class TestFileTga(PillowTestCase):
         test_im = Image.open(out)
         self.assertEqual(test_im.info["compression"], "tga_rle")
 
+    def test_save_1_mode_rle(self):
+        im = Image.new("1", (1, 1))
+        out = self.tempfile("temp.tga")
+
+        for kwargs in ({"compression": "tga_rle"}, {"rle": True}):
+            with self.assertRaises(IOError) as e:
+                im.save(out, **kwargs)
+            self.assertIn(
+                "cannot write mode 1 as TGA with run-length encoding", str(e.exception)
+            )
+
     def test_save_l_transparency(self):
         # There are 559 transparent pixels in la.tga.
         num_transparent = 559

@@ -193,20 +193,20 @@ mapping_readimage(ImagingMapperObject* mapper, PyObject* args)
     int xsize;
     int ysize;
     int stride;
+    int pixelsize;
     int orientation;
     if (!PyArg_ParseTuple(args, "s(ii)ii", &mode, &xsize, &ysize,
                           &stride, &orientation))
         return NULL;
 
-    if (stride <= 0) {
-        /* FIXME: maybe we should call ImagingNewPrologue instead */
-        if (!strcmp(mode, "L") || !strcmp(mode, "P"))
-            stride = xsize;
-        else if (!strcmp(mode, "I;16") || !strcmp(mode, "I;16B"))
-            stride = xsize * 2;
-        else
-            stride = xsize * 4;
-    }
+    if (!strcmp(mode, "L") || !strcmp(mode, "P"))
+        pixelsize = 1;
+    else if (!strncmp(mode, "I;16", 4))
+        pixelsize = 2;
+    else
+        pixelsize = 4;
+    if (stride <= xsize * pixelsize)
+        stride = xsize * pixelsize;
 
     size = ysize * stride;
 
@@ -319,6 +319,7 @@ PyImaging_MapBuffer(PyObject* self, PyObject* args)
     Py_ssize_t offset;
     int xsize, ysize;
     int stride;
+    int pixelsize;
     int ystep;
 
     if (!PyArg_ParseTuple(args, "O(ii)sOn(sii)", &target, &xsize, &ysize,
@@ -330,14 +331,14 @@ PyImaging_MapBuffer(PyObject* self, PyObject* args)
         return NULL;
     }
 
-    if (stride <= 0) {
-        if (!strcmp(mode, "L") || !strcmp(mode, "P"))
-            stride = xsize;
-        else if (!strncmp(mode, "I;16", 4))
-            stride = xsize * 2;
-        else
-            stride = xsize * 4;
-    }
+    if (!strcmp(mode, "L") || !strcmp(mode, "P"))
+        pixelsize = 1;
+    else if (!strncmp(mode, "I;16", 4))
+        pixelsize = 2;
+    else
+        pixelsize = 4;
+    if (stride <= xsize * pixelsize)
+        stride = xsize * pixelsize;
 
     if (stride > 0 && ysize > PY_SSIZE_T_MAX / stride) {
         PyErr_SetString(PyExc_MemoryError, "Integer overflow in ysize");

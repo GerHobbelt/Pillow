@@ -46,6 +46,7 @@ typedef struct {
 extern int ImagingLibTiffInit(ImagingCodecState state, int fp, uint32 offset);
 extern int ImagingLibTiffEncodeInit(ImagingCodecState state, char *filename, int fp);
 extern int ImagingLibTiffMergeFieldInfo(ImagingCodecState state, TIFFDataType field_type, int key, int is_var_length);
+extern int ImagingLibTiffFindField(ImagingCodecState state, int key, TIFFDataType *field_type, int *passcount, int *writecount);
 extern int ImagingLibTiffSetField(ImagingCodecState state, ttag_t tag, ...);
 
 

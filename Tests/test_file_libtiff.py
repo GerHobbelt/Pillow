@@ -880,3 +880,149 @@ class TestFileLibTiff(LibTiffTestCase):
             # Assert that the error code is IMAGING_CODEC_MEMORY
             self.assertEqual(str(e.exception), "-9")
         TiffImagePlugin.READ_LIBTIFF = False
+
+    def test_save_bytesio_seek_past_end(self):
+        # When writing the directory, libtiff seeks past the end of the data
+        # written so far, and then writes the tag values there. Check that the
+        # in-memory write buffer grows to fit, and that the bytes that are
+        # skipped over are zero, as they would be when writing to a file.
+
+        # 7 distinct bytes per row: PackBits emits 8 bytes per row, so the strip
+        # plus the header are exactly 64 KiB, the initial size of the buffer
+        im = Image.new("L", (7, 8191))
+        im.putdata([(i * 37) & 0xFF for i in range(7 * 8191)])
+        kwargs = {"compression": "packbits", "description": "D" * 65535}
+
+        outfile = self.tempfile("temp.tif")
+        im.save(outfile, **kwargs)
+        buffer_io = io.BytesIO()
+        im.save(buffer_io, format="tiff", **kwargs)
+        with open(outfile, "rb") as f:
+            self.assertEqual(buffer_io.getvalue(), f.read())
+
+        # odd-length tag values, so that libtiff pads between them. Large enough
+        # that the buffer has to be reallocated
+        im = hopper().resize((300, 300))
+        kwargs = {
+            "compression": "tiff_lzw",
+            "description": "abcdef",
+            "software": "xyz0",
+            "tiffinfo": {315: "artist", 33432: "copyright!"},
+        }
+        im.save(outfile, **kwargs)
+        buffer_io = io.BytesIO()
+        im.save(buffer_io, format="tiff", **kwargs)
+        with open(outfile, "rb") as f:
+            self.assertEqual(buffer_io.getvalue(), f.read())
+
+    def _jpeg_short_strip(self, tiled):
+        # The JPEG data in the strip/tile only contains 8 of the 256 rows that
+        # RowsPerStrip/TileLength declare. libtiff decodes the rows that exist
+        # and still reports success, so the remaining rows must be cleared
+        # rather than left as uninitialised memory.
+        jpeg = io.BytesIO()
+        Image.new("L", (256, 8), 200).save(jpeg, "JPEG")
+        jpeg_data = jpeg.getvalue()
+
+        ifd = TiffImagePlugin.ImageFileDirectory_v2()
+        ifd[TiffImagePlugin.IMAGEWIDTH] = 256
+        ifd[TiffImagePlugin.IMAGELENGTH] = 256
+        ifd[TiffImagePlugin.BITSPERSAMPLE] = 8
+        ifd[TiffImagePlugin.COMPRESSION] = 7  # JPEG
+        ifd[TiffImagePlugin.PHOTOMETRIC_INTERPRETATION] = 1  # BlackIsZero
+        if tiled:
+            ifd[322] = 256  # TileWidth
+            ifd[323] = 256  # TileLength
+            ifd[TiffImagePlugin.TILEOFFSETS] = 0
+            ifd[325] = len(jpeg_data)  # TileByteCounts
+            # Point the tile data at the end of the IFD
+            ifd[TiffImagePlugin.TILEOFFSETS] = 8 + len(ifd.tobytes(8))
+        else:
+            ifd[TiffImagePlugin.ROWSPERSTRIP] = 256
+            # Strip offsets is updated by tobytes()
+            ifd[TiffImagePlugin.STRIPOFFSETS] = 0
+            ifd[TiffImagePlugin.STRIPBYTECOUNTS] = len(jpeg_data)
+
+        b = io.BytesIO()
+        ifd.save(b)
+        b.write(jpeg_data)
+
+        im = Image.open(b)
+        self.assertEqual(im.tile[0][0], "libtiff")
+        self.assertEqual(im.crop((0, 0, 256, 8)).getextrema(), (200, 200))
+        self.assertEqual(im.crop((0, 8, 256, 256)).getextrema(), (0, 0))
+
+    def test_jpeg_short_strip(self):
+        self._jpeg_short_strip(False)
+
+    def test_jpeg_short_tile(self):
+        self._jpeg_short_strip(True)
+
+    def test_libtiff_field_definition(self):
+        TiffImagePlugin.WRITE_LIBTIFF = True
+        try:
+            out = self.tempfile("temp.tif")
+            im = Image.new("L", (1, 1))
+            for tag, value, tagtype in [
+                # DNGPrivateData is a BYTE array with a count to libtiff
+                (50740, 4096, TiffTags.LONG),
+                # 6.2.2 passes bytes as a string, without a count
+                (50740, b"private", TiffTags.BYTE),
+                # ActiveArea is a LONG array of four values to libtiff
+                (50829, 64, TiffTags.LONG),
+                (50829, (0, 0), TiffTags.LONG),
+            ]:
+                ifd = TiffImagePlugin.ImageFileDirectory_v2()
+                ifd[tag] = value
+                ifd.tagtype[tag] = tagtype
+                with self.assertRaises(ValueError) as e:
+                    im.save(out, tiffinfo=ifd)
+                self.assertIn("libtiff field definition", str(e.exception))
+
+            # Values that match the libtiff definition are written
+            ifd = TiffImagePlugin.ImageFileDirectory_v2()
+            ifd[50829] = (0, 0, 1, 1)
+            ifd.tagtype[50829] = TiffTags.LONG
+            im.save(out, tiffinfo=ifd)
+
+            reloaded = Image.open(out)
+            self.assertEqual(reloaded.tag_v2[50829], (0, 0, 1, 1))
+        finally:
+            TiffImagePlugin.WRITE_LIBTIFF = False
+
+    def test_libtiff_ycbcrsubsampling_field_definition(self):
+        # libtiff reads YCbCrSubsampling as two separate values.
+        # 6.2.2 cannot save YCbCr through libtiff, so use RGB.
+        TiffImagePlugin.WRITE_LIBTIFF = True
+        try:
+            out = self.tempfile("temp.tif")
+            im = Image.new("RGB", (1, 1))
+
+            ifd = TiffImagePlugin.ImageFileDirectory_v2()
+            ifd[530] = (1,)
+            with self.assertRaises(ValueError) as e:
+                im.save(out, tiffinfo=ifd)
+            self.assertIn("libtiff field definition", str(e.exception))
+
+            for value in [(1, 1), (2, 2)]:
+                ifd = TiffImagePlugin.ImageFileDirectory_v2()
+                ifd[530] = value
+                im.save(out, tiffinfo=ifd)
+
+                reloaded = Image.open(out)
+                self.assertEqual(reloaded.tag_v2[530], value)
+        finally:
+            TiffImagePlugin.WRITE_LIBTIFF = False
+
+    def test_libtiff_ycbcrsubsampling_resave(self):
+        b = io.BytesIO()
+        Image.new("RGB", (8, 8)).save(b, "TIFF", tiffinfo={530: (2, 2)})
+        b.seek(0)
+        im = Image.open(b)
+
+        out = io.BytesIO()
+        im.save(out, "TIFF", compression="tiff_lzw")
+        out.seek(0)
+
+        reloaded = Image.open(out)
+        self.assertEqual(reloaded.tag_v2[530], (2, 2))

@@ -23,7 +23,7 @@
 # purposes only.
 
 
-from . import ImageFile, ImagePalette
+from . import Image, ImageFile, ImagePalette
 from ._binary import i8, i16be as i16, i32be as i32
 
 # __version__ is deprecated and will be removed in a future version. Use
@@ -53,6 +53,7 @@ class GdImageFile(ImageFile.ImageFile):
 
         self.mode = "L"  # FIXME: "P"
         self._size = i16(s[2:4]), i16(s[4:6])
+        Image._decompression_bomb_check(self.size)
 
         trueColor = i8(s[6])
         trueColorOffset = 2 if trueColor else 0

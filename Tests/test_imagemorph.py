@@ -84,6 +84,14 @@ class MorphTests(PillowTestCase):
         self.assertEqual(str(e.exception), "No operator loaded")
 
     # Test the named patterns
+    def test_zero_width(self):
+        im = Image.new("L", (0, 1))
+        mop = ImageMorph.MorphOp(op_name="erosion8")
+        count, out = mop.apply(im)
+        self.assertEqual(count, 0)
+        self.assertEqual(out.mode, im.mode)
+        self.assertEqual(out.size, im.size)
+
     def test_erosion8(self):
         # erosion8
         mop = ImageMorph.MorphOp(op_name="erosion8")

@@ -43,8 +43,20 @@ ImagingExpand(Imaging imIn, int xmargin, int ymargin, int mode)
     int x, y;
     ImagingSectionCookie cookie;
 
-    if (xmargin < 0 && ymargin < 0)
+    if (xmargin < 0 || ymargin < 0)
         return (Imaging) ImagingError_ValueError("bad kernel size");
+    if ((xmargin > 0 && xmargin > INT_MAX / (int) sizeof(FLOAT32) / xmargin) ||
+        (ymargin > 0 && ymargin > INT_MAX / (int) sizeof(FLOAT32) / ymargin))
+        return (Imaging) ImagingError_ValueError("filter size too large");
+
+    if (imIn->xsize == 0 || imIn->ysize == 0) {
+        imOut = ImagingNew(
+            imIn->mode, imIn->xsize+2*xmargin, imIn->ysize+2*ymargin);
+        if (!imOut)
+            return NULL;
+        ImagingCopyPalette(imOut, imIn);
+        return imOut;
+    }
 
     imOut = ImagingNewDirty(
         imIn->mode, imIn->xsize+2*xmargin, imIn->ysize+2*ymargin);
